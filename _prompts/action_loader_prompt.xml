@@ -1,0 +1,24 @@
+<ActionLoader>
+  <Name>ActionLoader</Name>
+  <Description>Loads and executes actions</Description>
+  <Patterns>
+    <Pattern type="default">**/actions/**/*.action.js</Pattern>
+    <Pattern type="index">**/actions/index.js</Pattern>
+  </Patterns>
+  <Validation>
+    <Schema>
+      <Field name="name" type="String" />
+      <Field name="methods" type="Object" />
+      <Field name="meta" type="Object" />
+      <Field name="options" type="Object" />
+    </Schema>
+    <Function>validateAction</Function>
+  </Validation>
+  <Transformation>
+    <Function>transformAction</Function>
+  </Transformation>
+  <Actions>
+    <Action name="actionName" description="Description of the action" />
+    <!-- Add more actions as needed -->
+  </Actions>
+</ActionLoader> 

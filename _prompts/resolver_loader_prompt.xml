@@ -1,0 +1,24 @@
+<ResolverLoader>
+  <Name>ResolverLoader</Name>
+  <Description>Loads resolvers for GraphQL queries and mutations</Description>
+  <Patterns>
+    <Pattern type="default">**/resolvers/**/*.resolver.js</Pattern>
+    <Pattern type="index">**/resolvers/index.js</Pattern>
+  </Patterns>
+  <Validation>
+    <Schema>
+      <Field name="name" type="String" />
+      <Field name="methods" type="Object" />
+      <Field name="meta" type="Object" />
+      <Field name="options" type="Object" />
+    </Schema>
+    <Function>validateResolver</Function>
+  </Validation>
+  <Transformation>
+    <Function>transformResolver</Function>
+  </Transformation>
+  <Functions>
+    <Function name="functionName" description="Description of the function" />
+    <!-- Add more functions as needed -->
+  </Functions>
+</ResolverLoader> 

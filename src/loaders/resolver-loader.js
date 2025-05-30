@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for resolvers
 const RESOLVER_PATTERNS = {
-  default: '**/resolvers/**/*.resolver.js',
+  default: '**/*-resolvers.js',
   index: '**/resolvers/index.js'
 };
 

@@ -1,0 +1,31 @@
+<FileSystem>
+  <Folder name="root">
+    <Description>The root directory of the functional file system</Description>
+    <Folders>
+      <Folder name="models">
+        <Description>Contains all data model files</Description>
+        <Files>
+          <File name="user.model.js" type="model" />
+          <File name="product.model.js" type="model" />
+        </Files>
+      </Folder>
+      <Folder name="actions">
+        <Description>Contains all action files</Description>
+        <Files>
+          <File name="createUser.action.js" type="action" />
+          <File name="deleteProduct.action.js" type="action" />
+        </Files>
+      </Folder>
+      <Folder name="routes">
+        <Description>Contains all route files</Description>
+        <Files>
+          <File name="user.routes.js" type="route" />
+          <File name="product.routes.js" type="route" />
+        </Files>
+      </Folder>
+    </Folders>
+    <Files>
+      <File name="index.js" type="index" />
+    </Files>
+  </Folder>
+</FileSystem> 

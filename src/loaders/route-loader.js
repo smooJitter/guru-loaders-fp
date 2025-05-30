@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for routes
 const ROUTE_PATTERNS = {
-  default: '**/routes/**/*.route.js',
+  default: '**/route-*.js',
   index: '**/routes/index.js'
 };
 

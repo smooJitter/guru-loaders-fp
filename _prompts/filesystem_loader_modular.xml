@@ -1,0 +1,31 @@
+<FileSystem>
+  <Folder name="root">
+    <Description>The root directory of the modular file system</Description>
+    <Folders>
+      <Folder name="modules">
+        <Description>Contains all feature modules</Description>
+        <Folders>
+          <Folder name="user">
+            <Description>User management module</Description>
+            <Files>
+              <File name="user.model.js" type="model" />
+              <File name="user.actions.js" type="action" />
+              <File name="user.routes.js" type="route" />
+            </Files>
+          </Folder>
+          <Folder name="product">
+            <Description>Product management module</Description>
+            <Files>
+              <File name="product.model.js" type="model" />
+              <File name="product.actions.js" type="action" />
+              <File name="product.routes.js" type="route" />
+            </Files>
+          </Folder>
+        </Folders>
+      </Folder>
+    </Folders>
+    <Files>
+      <File name="index.js" type="index" />
+    </Files>
+  </Folder>
+</FileSystem> 

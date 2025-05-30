@@ -1,0 +1,25 @@
+<PluginLoader>
+  <Name>PluginLoader</Name>
+  <Description>Loads and manages plugins with hooks</Description>
+  <Patterns>
+    <Pattern type="default">**/plugins/**/*.plugin.js</Pattern>
+    <Pattern type="hooks">**/plugins/**/*.hooks.js</Pattern>
+    <Pattern type="index">**/plugins/index.js</Pattern>
+  </Patterns>
+  <Validation>
+    <Schema>
+      <Field name="name" type="String" />
+      <Field name="version" type="String" />
+      <Field name="hooks" type="Object" />
+      <Field name="options" type="Object" />
+    </Schema>
+    <Function>validatePlugin</Function>
+  </Validation>
+  <Transformation>
+    <Function>transformPlugin</Function>
+  </Transformation>
+  <Hooks>
+    <Hook name="hookName" description="Description of the hook" />
+    <!-- Add more hooks as needed -->
+  </Hooks>
+</PluginLoader> 

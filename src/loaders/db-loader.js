@@ -4,13 +4,13 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for database configs and fakers
 const DB_PATTERNS = {
-  default: '**/db.config.js',
-  development: '**/db.development.js',
-  production: '**/db.production.js',
-  test: '**/db.test.js',
+  default: '**/environment-db.js',
+  development: '**/environment-db-development.js',
+  production: '**/environment-db-production.js',
+  test: '**/environment-db-test.js',
   faker: {
-    default: '**/fakers/**/*.faker.js',
-    seed: '**/fakers/**/*.seed.js',
+    default: '**/faker-*.js',
+    seed: '**/seed-*.js',
     index: '**/fakers/index.js'
   }
 };

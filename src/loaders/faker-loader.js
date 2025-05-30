@@ -4,8 +4,8 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for fakers
 const FAKER_PATTERNS = {
-  default: '**/fakers/**/*.faker.js',
-  seed: '**/fakers/**/*.seed.js',
+  default: '**/faker-*.js',
+  seed: '**/seed-*.js',
   index: '**/fakers/index.js'
 };
 

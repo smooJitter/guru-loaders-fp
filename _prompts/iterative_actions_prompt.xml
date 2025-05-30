@@ -1,0 +1,26 @@
+<IterativeActionsPrompt>
+  <Objective>Generate an XML representation for iterative actions based on the user-provided specifications.</Objective>
+  <SystemMessage>This prompt guides the creation of XML structures for actions that are repeated until a specified condition is satisfied, including various action types like filter, switch, classify, query, and mutate.</SystemMessage>
+  <Instructions>
+    <Step>
+      <Task>Define Iterative Actions</Task>
+      <Action>List actions and the conditions under which they repeat, specifying the action type.</Action>
+      <OutputFormat>
+        <![CDATA[
+        <IterativeActions>
+          <Action name="Action1" type="classify" repeatUntil="Condition1" />
+          <!-- Add more actions as needed -->
+        </IterativeActions>
+        ]]>
+      </OutputFormat>
+    </Step>
+  </Instructions>
+  <Outcome>An XML structure representing actions that are executed iteratively, with specified types.</Outcome>
+  <ExampleOutput>
+    <![CDATA[
+    <IterativeActions>
+      <Action name="ClassifyData" type="classify" repeatUntil="AllDataClassified" />
+    </IterativeActions>
+    ]]>
+  </ExampleOutput>
+</IterativeActionsPrompt> 

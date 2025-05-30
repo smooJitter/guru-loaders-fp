@@ -2,7 +2,7 @@ import { createLoader } from '../core/pipeline/create-pipeline.js';
 
 // Event patterns for file discovery
 const EVENT_PATTERNS = {
-  default: '**/events/**/*.event.js',
+  default: '**/event-*.js',
   index: '**/events/index.js'
 };
 

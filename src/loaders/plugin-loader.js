@@ -4,8 +4,8 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for plugins
 const PLUGIN_PATTERNS = {
-  default: '**/plugins/**/*.plugin.js',
-  hooks: '**/plugins/**/*.hooks.js',
+  default: '**/plugin-*.js',
+  hooks: '**/hooks-*.js',
   index: '**/plugins/index.js'
 };
 

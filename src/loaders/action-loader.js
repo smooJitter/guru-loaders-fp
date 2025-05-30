@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for actions
 const ACTION_PATTERNS = {
-  default: '**/actions/**/*.action.js',
+  default: '**/*-actions.js',
   index: '**/actions/index.js'
 };
 

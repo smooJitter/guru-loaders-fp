@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for middleware
 const MIDDLEWARE_PATTERNS = {
-  default: '**/middleware/**/*.middleware.js',
+  default: '**/middleware/middleware-*.js',
   index: '**/middleware/index.js'
 };
 

@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for data loaders
 const DATA_PATTERNS = {
-  default: '**/data/**/*.loader.js',
+  default: '**/data-*.js',
   index: '**/data/index.js'
 };
 

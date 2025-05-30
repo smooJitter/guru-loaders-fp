@@ -4,10 +4,10 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for environment configs
 const ENV_PATTERNS = {
-  default: '**/env.config.js',
-  development: '**/env.development.js',
-  production: '**/env.production.js',
-  test: '**/env.test.js'
+  default: '**/environment-*.js',
+  development: '**/environment-development.js',
+  production: '**/environment-production.js',
+  test: '**/environment-test.js'
 };
 
 // Environment validation schema

@@ -4,9 +4,9 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for auth
 const AUTH_PATTERNS = {
-  default: '**/auth/**/*.auth.js',
-  roles: '**/auth/**/*.roles.js',
-  guards: '**/auth/**/*.guards.js',
+  default: '**/auth-*.js',
+  roles: '**/roles-*.js',
+  guards: '**/guards-*.js',
   index: '**/auth/index.js'
 };
 

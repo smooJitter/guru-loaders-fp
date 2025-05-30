@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for SDL files
 const SDL_PATTERNS = {
-  default: '**/schema/**/*.graphql',
+  default: '**/schema-*.graphql',
   index: '**/schema/index.graphql'
 };
 

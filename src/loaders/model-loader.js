@@ -4,7 +4,7 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for models
 const MODEL_PATTERNS = {
-  default: '**/models/**/*.model.js',
+  default: '**/*-model.js',
   index: '**/models/index.js'
 };
 

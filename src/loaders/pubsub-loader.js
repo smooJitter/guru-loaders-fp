@@ -4,8 +4,8 @@ import { pipeAsync } from '../utils/fp-utils.js';
 
 // File patterns for pubsub
 const PUBSUB_PATTERNS = {
-  default: '**/pubsub/**/*.pubsub.js',
-  topics: '**/pubsub/**/*.topics.js',
+  default: '**/pubsub-*.js',
+  topics: '**/topics-*.js',
   index: '**/pubsub/index.js'
 };
 

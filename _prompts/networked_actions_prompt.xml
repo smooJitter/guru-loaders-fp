@@ -1,0 +1,29 @@
+<NetworkedActionsPrompt>
+  <Objective>Generate an XML representation for networked actions based on the user-provided specifications.</Objective>
+  <SystemMessage>This prompt guides the creation of XML structures for actions that are interconnected, with dependencies and conditions affecting their execution.</SystemMessage>
+  <Instructions>
+    <Step>
+      <Task>Define Networked Actions</Task>
+      <Action>List actions and their dependencies or conditions.</Action>
+      <OutputFormat>
+        <![CDATA[
+        <NetworkedActions>
+          <Action name="Action1" dependsOn="Action2" condition="Condition1" />
+          <Action name="Action2" />
+          <!-- Add more actions as needed -->
+        </NetworkedActions>
+        ]]>
+      </OutputFormat>
+    </Step>
+  </Instructions>
+  <Outcome>An XML structure representing interconnected actions with dependencies and conditions.</Outcome>
+  <ExampleOutput>
+    <![CDATA[
+    <NetworkedActions>
+      <Action name="AnalyzeData" dependsOn="FetchData" condition="DataAvailable" />
+      <Action name="FetchData" />
+      <Action name="ReportResults" dependsOn="AnalyzeData" condition="AnalysisComplete" />
+    </NetworkedActions>
+    ]]>
+  </ExampleOutput>
+</NetworkedActionsPrompt> 
