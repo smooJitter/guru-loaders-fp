@@ -14,11 +14,12 @@ const JSON_PATTERNS = {
 const jsonSchema = {
   name: 'string',
   data: 'object',
-  options: 'object'
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the JSON loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object/array, and a single or multiple JSON objects.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -26,10 +27,30 @@ export const createJsonLoader = (options = {}) => {
   const loader = createLoader('json', {
     ...options,
     patterns: JSON_PATTERNS,
-    validate: (module) => validationHook(module, jsonSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const jsonObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const jsonList = Array.isArray(jsonObjs) ? jsonObjs : [jsonObjs];
+      // Validate all JSON objects in the array
+      return jsonList.every(jsonObj => validationHook(jsonObj, jsonSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const jsonObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const jsonList = Array.isArray(jsonObjs) ? jsonObjs : [jsonObjs];
+      // Inject context/services if needed
+      return jsonList.map(jsonObj => {
+        const injected = contextInjectionHook(jsonObj, { services: context?.services, config: context?.config });
+        return {
+          ...injected,
+          type: 'json',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 

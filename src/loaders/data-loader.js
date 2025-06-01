@@ -15,11 +15,12 @@ const dataLoaderSchema = {
   name: 'string',
   model: 'string',
   batchFn: 'function',
-  options: 'object'
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the data loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object/array, and a single or multiple data loader objects.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -27,10 +28,30 @@ export const createDataLoader = (options = {}) => {
   const loader = createLoader('data', {
     ...options,
     patterns: DATA_PATTERNS,
-    validate: (module) => validationHook(module, dataLoaderSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const dataObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const dataList = Array.isArray(dataObjs) ? dataObjs : [dataObjs];
+      // Validate all data loader objects in the array
+      return dataList.every(dataObj => validationHook(dataObj, dataLoaderSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const dataObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const dataList = Array.isArray(dataObjs) ? dataObjs : [dataObjs];
+      // Inject context/services if needed
+      return dataList.map(dataObj => {
+        const injected = contextInjectionHook(dataObj, { services: context?.services, config: context?.config });
+        return {
+          ...injected,
+          type: 'data',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 

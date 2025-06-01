@@ -14,12 +14,13 @@ const RESOLVER_PATTERNS = {
 const resolverSchema = {
   name: 'string',
   methods: 'object',
-  meta: 'object',
-  options: 'object'
+  meta: ['object', 'undefined'],
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the resolver loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object/array, and a single or multiple resolver objects.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -27,10 +28,30 @@ export const createResolverLoader = (options = {}) => {
   const loader = createLoader('resolvers', {
     ...options,
     patterns: RESOLVER_PATTERNS,
-    validate: (module) => validationHook(module, resolverSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const resolverObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const resolverList = Array.isArray(resolverObjs) ? resolverObjs : [resolverObjs];
+      // Validate all resolver objects in the array
+      return resolverList.every(resolverObj => validationHook(resolverObj, resolverSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const resolverObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const resolverList = Array.isArray(resolverObjs) ? resolverObjs : [resolverObjs];
+      // Inject context/services if needed
+      return resolverList.map(resolverObj => {
+        const injected = contextInjectionHook(resolverObj, { services: context?.services, config: context?.config });
+        return {
+          ...injected,
+          type: 'resolver',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 

@@ -14,12 +14,13 @@ const SDL_PATTERNS = {
 const sdlSchema = {
   name: 'string',
   schema: 'string',
-  buildSchema: 'function', // Optional function to build schema with context
-  options: 'object'
+  buildSchema: ['function', 'undefined'], // Optional function to build schema with context
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the SDL loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object/array, and a single or multiple SDL objects.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -27,10 +28,30 @@ export const createSdlLoader = (options = {}) => {
   const loader = createLoader('sdl', {
     ...options,
     patterns: SDL_PATTERNS,
-    validate: (module) => validationHook(module, sdlSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const sdlObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const sdlList = Array.isArray(sdlObjs) ? sdlObjs : [sdlObjs];
+      // Validate all SDL objects in the array
+      return sdlList.every(sdlObj => validationHook(sdlObj, sdlSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const sdlObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const sdlList = Array.isArray(sdlObjs) ? sdlObjs : [sdlObjs];
+      // Inject context/services if needed
+      return sdlList.map(sdlObj => {
+        const injected = contextInjectionHook(sdlObj, { services: context?.services, config: context?.config });
+        return {
+          ...injected,
+          type: 'sdl',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 

@@ -23,6 +23,7 @@ const authSchema = {
 
 /**
  * Create the auth loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -30,10 +31,20 @@ export const createAuthLoader = (options = {}) => {
   const loader = createLoader('auth', {
     ...options,
     patterns: AUTH_PATTERNS,
-    validate: (module) => validationHook(module, authSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const authObj = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      return validationHook(authObj, authSchema);
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const authObj = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      // Inject context/services if needed
+      return contextInjectionHook(authObj, { services: context?.services, config: context?.config });
     }
   });
 

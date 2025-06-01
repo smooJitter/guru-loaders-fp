@@ -14,11 +14,12 @@ const EVENT_PATTERNS = {
 const eventSchema = {
   name: 'string',
   handler: 'function',
-  options: 'object'
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the event loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function returning a single event or an array of events.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -26,10 +27,30 @@ export const createEventLoader = (options = {}) => {
   const loader = createLoader('event', {
     ...options,
     patterns: EVENT_PATTERNS,
-    validate: (module) => validationHook(module, eventSchema),
+    validate: (module, context) => {
+      // Call the factory with context/services for validation
+      const events = typeof module.default === 'function'
+        ? module.default({ services: context?.services })
+        : module.default;
+      const eventList = Array.isArray(events) ? events : [events];
+      // Validate all events in the array
+      return eventList.every(event => validationHook(event, eventSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // Call the factory with context/services for transformation
+      const events = typeof module.default === 'function'
+        ? module.default({ services: context?.services })
+        : module.default;
+      const eventList = Array.isArray(events) ? events : [events];
+      // Inject context into each event handler if needed
+      return eventList.map(event => {
+        const injected = contextInjectionHook(event, { services: context?.services });
+        return {
+          ...injected,
+          type: 'event',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 

@@ -16,11 +16,12 @@ const pubsubSchema = {
   name: 'string',
   topics: 'object',
   handlers: 'object',
-  options: 'object'
+  options: ['object', 'undefined']
 };
 
 /**
  * Create the pubsub loader with hooks for validation, context injection, logging, and error handling.
+ * Supports modules that export a factory function or a plain object/array, and a single or multiple pubsub objects.
  * @param {object} options Loader options
  * @returns {function} Loader function
  */
@@ -28,10 +29,30 @@ export const createPubsubLoader = (options = {}) => {
   const loader = createLoader('pubsub', {
     ...options,
     patterns: PUBSUB_PATTERNS,
-    validate: (module) => validationHook(module, pubsubSchema),
+    validate: (module, context) => {
+      // If factory, call with context/services; else use as-is
+      const pubsubObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const pubsubList = Array.isArray(pubsubObjs) ? pubsubObjs : [pubsubObjs];
+      // Validate all pubsub objects in the array
+      return pubsubList.every(pubsubObj => validationHook(pubsubObj, pubsubSchema));
+    },
     transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
+      // If factory, call with context/services; else use as-is
+      const pubsubObjs = typeof module.default === 'function'
+        ? module.default({ services: context?.services, config: context?.config })
+        : module.default;
+      const pubsubList = Array.isArray(pubsubObjs) ? pubsubObjs : [pubsubObjs];
+      // Inject context/services if needed
+      return pubsubList.map(pubsubObj => {
+        const injected = contextInjectionHook(pubsubObj, { services: context?.services, config: context?.config });
+        return {
+          ...injected,
+          type: 'pubsub',
+          timestamp: Date.now()
+        };
+      });
     }
   });
 
