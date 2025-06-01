@@ -8,7 +8,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads environment-specific configuration and variables, ensuring the application runs with the correct settings for each environment.
 
-- **File Pattern:** `**/env.config.js`
+- **File Pattern:** `**/*-env.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -36,7 +36,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Manages database connections, lifecycle, and seeds development/test data, providing a consistent interface for database operations.
 
-- **File Pattern:** `**/db.config.js`
+- **File Pattern:** `**/*-db.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -64,7 +64,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads and registers data models, defining schemas and options for data representation and manipulation.
 
-- **File Pattern:** `**/models/**/*.model.js`
+- **File Pattern:** `**/*-model.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -89,7 +89,10 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads business logic actions, encapsulating methods and metadata for application operations.
 
-- **File Pattern:** `**/actions/**/*.action.js`
+- **File Pattern:** `**/*-actions.js`, `**/actions/**/index.js`
+- **Valid Locations:**
+  - Any `-actions.js` file in `src/actions/` or `modules/**/actions/` (but not under the wrong type directory)
+  - Any `index.js` file under an `actions/` directory (no matter how deep)
 - **Module Shape:**
   ```js
   module.exports = {
@@ -108,13 +111,15 @@ A comprehensive reference for all loader types in `src/loaders/`.
   await actionLoader(context);
   ```
 
+> **Note:** The actions-loader will always check for `index.js` under any `actions/` directory, even if there are no `-actions.js` files present. This allows for namespace entrypoints and hybrid action composition.
+
 ---
 
 ## resolvers
 
 **Description:** Loads GraphQL resolvers, defining query and mutation methods for data access and manipulation.
 
-- **File Pattern:** `**/resolvers/**/*.resolver.js`
+- **File Pattern:** `**/*-resolver.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -139,7 +144,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads and merges GraphQL or other type definitions, ensuring consistent data structures across the application.
 
-- **File Pattern:** `**/types/**/*.type.js`
+- **File Pattern:** `**/*-type.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -163,7 +168,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads HTTP/Express routes, defining route handlers and options for web server operations.
 
-- **File Pattern:** `**/routes/**/*.route.js`
+- **File Pattern:** `**/*-route.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -187,7 +192,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads JSON schemas or config objects, providing structured data for application configuration.
 
-- **File Pattern:** `**/json/**/*.json.js`
+- **File Pattern:** `**/*-json.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -211,7 +216,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads Express middleware functions, providing reusable logic for request processing.
 
-- **File Pattern:** `**/middleware/**/*.middleware.js`
+- **File Pattern:** `**/*-middleware.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -235,7 +240,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads GraphQL SDL files and schema builder functions, facilitating schema definition and management.
 
-- **File Pattern:** `**/schema/**/*.graphql`
+- **File Pattern:** `**/*-sdl.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -248,8 +253,8 @@ A comprehensive reference for all loader types in `src/loaders/`.
 - **Transformation:** Adds `type: 'sdl'` and `timestamp` for SDL tracking.
 - **Usage Example:**
   ```js
-  import { createSDL } from './sdl-loader';
-  const sdlLoader = createSDL();
+  import { createSdlLoader } from './sdl-loader';
+  const sdlLoader = createSdlLoader();
   await sdlLoader(context);
   ```
 
@@ -257,14 +262,14 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ## faker
 
-**Description:** Loads and seeds development/test data for models, providing mock data for testing and development.
+**Description:** Loads data faker functions for generating test and development data.
 
-- **File Pattern:** `**/fakers/**/*.faker.js`
+- **File Pattern:** `**/*-faker.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserFaker',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
@@ -281,14 +286,14 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ## data
 
-**Description:** Loads DataLoader batch functions for efficient data fetching, optimizing database queries and reducing load.
+**Description:** Loads data loader functions for efficient data fetching and caching.
 
-- **File Pattern:** `**/data/**/*.loader.js`
+- **File Pattern:** `**/*-data.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserData',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
@@ -305,38 +310,38 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ## pubsub
 
-**Description:** Loads PubSub topics and event handlers, facilitating event-driven communication within the application.
+**Description:** Loads pub/sub event handlers and topics for event-driven architecture.
 
-- **File Pattern:** `**/pubsub/**/*.pubsub.js`
+- **File Pattern:** `**/*-pubsub.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserPubSub',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
-- **Validation:** Ensures `name` and `methods` object are defined for PubSub functionality.
-- **Transformation:** Adds `type: 'pubsub'` and `timestamp` for PubSub tracking.
+- **Validation:** Ensures `name` and `methods` object are defined for pubsub functionality.
+- **Transformation:** Adds `type: 'pubsub'` and `timestamp` for pubsub tracking.
 - **Usage Example:**
   ```js
-  import { createPubSubLoader } from './pubsub-loader';
-  const pubSubLoader = createPubSubLoader();
-  await pubSubLoader(context);
+  import { createPubsubLoader } from './pubsub-loader';
+  const pubsubLoader = createPubsubLoader();
+  await pubsubLoader(context);
   ```
 
 ---
 
 ## plugin
 
-**Description:** Loads plugin hooks for lifecycle, request, and custom events, extending application functionality through plugins.
+**Description:** Loads plugin modules that extend application functionality.
 
-- **File Pattern:** `**/plugins/**/*.plugin.js`
+- **File Pattern:** `**/*-plugin.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserPlugin',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
@@ -353,14 +358,14 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ## event
 
-**Description:** Loads event handlers for custom event-driven logic, enabling custom responses to application events.
+**Description:** Loads event handlers and listeners for application events.
 
-- **File Pattern:** `**/events/**/*.event.js`
+- **File Pattern:** `**/*-event.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserEvent',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
@@ -377,19 +382,19 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ## auth
 
-**Description:** Loads authentication roles, guards, and methods, providing security and access control for the application.
+**Description:** Loads authentication and authorization handlers.
 
-- **File Pattern:** `**/auth/**/*.auth.js`
+- **File Pattern:** `**/*-auth.js`
 - **Module Shape:**
   ```js
   module.exports = {
     name: 'UserAuth',
-    methods: { main: async (args, ctx) => { ... } },
+    methods: { main: async (ctx) => { ... } },
     options: { ... }
   };
   ```
-- **Validation:** Ensures `name` and `methods` object are defined for authentication functionality.
-- **Transformation:** Adds `type: 'auth'` and `timestamp` for authentication tracking.
+- **Validation:** Ensures `name` and `methods` object are defined for auth functionality.
+- **Transformation:** Adds `type: 'auth'` and `timestamp` for auth tracking.
 - **Usage Example:**
   ```js
   import { createAuthLoader } from './auth-loader';

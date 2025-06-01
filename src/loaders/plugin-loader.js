@@ -1,138 +1,49 @@
 import R from 'ramda';
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { pipeAsync } from '../utils/fp-utils.js';
+import { loggingHook } from '../hooks/loggingHook';
+import { validationHook } from '../hooks/validationHook';
+import { errorHandlingHook } from '../hooks/errorHandlingHook';
+import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for plugins
 const PLUGIN_PATTERNS = {
-  default: '**/plugin-*.js',
-  hooks: '**/hooks-*.js',
-  index: '**/plugins/index.js'
+  default: '**/*-plugin.js',
+  index: '**/plugin/**/index.js'
 };
 
-// Plugin validation schema
+// Plugin validation schema for the validation hook
 const pluginSchema = {
-  name: String,
-  version: String,
-  hooks: Object,
-  options: Object
+  name: 'string',
+  version: 'string',
+  hooks: 'object',
+  options: 'object'
 };
 
-// Plugin validation
-const validatePlugin = (module) => {
-  const { name, version, hooks } = module;
-  return name && 
-         version && 
-         hooks && 
-         typeof hooks === 'object';
-};
-
-// Plugin transformation
-const transformPlugin = (module) => {
-  const { name, version, hooks, options = {} } = module;
-  
-  return {
-    name,
-    version,
-    hooks,
-    options,
-    type: 'plugin',
-    timestamp: Date.now(),
-    // Create Plugin instance
-    create: (context) => {
-      const { logger } = context.services;
-      
-      // Register hooks
-      const registeredHooks = {};
-      Object.entries(hooks).forEach(([hookName, hookFn]) => {
-        if (typeof hookFn === 'function') {
-          registeredHooks[hookName] = async (...args) => {
-            try {
-              return await hookFn(...args, context);
-            } catch (error) {
-              logger.error(`Error in ${name} hook ${hookName}:`, error);
-              throw error;
-            }
-          };
-        }
-      });
-
-      return {
-        // Hook access
-        hooks: registeredHooks,
-        // Lifecycle methods
-        onInit: async () => {
-          if (registeredHooks.onInit) {
-            await registeredHooks.onInit(context);
-          }
-        },
-        onStart: async () => {
-          if (registeredHooks.onStart) {
-            await registeredHooks.onStart(context);
-          }
-        },
-        onStop: async () => {
-          if (registeredHooks.onStop) {
-            await registeredHooks.onStop(context);
-          }
-        },
-        // Request lifecycle hooks
-        onRequest: async (req) => {
-          if (registeredHooks.onRequest) {
-            await registeredHooks.onRequest(req, context);
-          }
-        },
-        onResponse: async (res) => {
-          if (registeredHooks.onResponse) {
-            await registeredHooks.onResponse(res, context);
-          }
-        },
-        onError: async (error) => {
-          if (registeredHooks.onError) {
-            await registeredHooks.onError(error, context);
-          }
-        },
-        // GraphQL specific hooks
-        onSchema: async (schema) => {
-          if (registeredHooks.onSchema) {
-            await registeredHooks.onSchema(schema, context);
-          }
-        },
-        onResolve: async (info) => {
-          if (registeredHooks.onResolve) {
-            await registeredHooks.onResolve(info, context);
-          }
-        },
-        // Database hooks
-        onConnect: async () => {
-          if (registeredHooks.onConnect) {
-            await registeredHooks.onConnect(context);
-          }
-        },
-        onDisconnect: async () => {
-          if (registeredHooks.onDisconnect) {
-            await registeredHooks.onDisconnect(context);
-          }
-        },
-        // Custom hook execution
-        executeHook: async (hookName, ...args) => {
-          if (registeredHooks[hookName]) {
-            return await registeredHooks[hookName](...args, context);
-          }
-          return null;
-        }
-      };
-    }
-  };
-};
-
-// Create plugin loader
+/**
+ * Create the plugin loader with hooks for validation, context injection, logging, and error handling.
+ * @param {object} options Loader options
+ * @returns {function} Loader function
+ */
 export const createPluginLoader = (options = {}) => {
   const loader = createLoader('plugin', {
     ...options,
     patterns: PLUGIN_PATTERNS,
-    validate: validatePlugin,
-    transform: transformPlugin
+    validate: (module) => validationHook(module, pluginSchema),
+    transform: (module, context) => {
+      // Inject context dependencies if needed (e.g., services)
+      return contextInjectionHook(module, { services: context?.services });
+    }
   });
 
-  return loader;
+  // Composable loader function
+  return async (context) => {
+    // Log the loading phase
+    loggingHook(context, 'Loading plugin modules');
+
+    // Wrap the loader in error handling
+    return errorHandlingHook(async () => {
+      const { context: loaderContext, cleanup } = await loader(context);
+      return { context: loaderContext, cleanup };
+    }, context);
+  };
 }; 

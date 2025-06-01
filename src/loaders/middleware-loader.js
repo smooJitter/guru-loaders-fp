@@ -1,49 +1,47 @@
-import R from 'ramda';
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { pipeAsync } from '../utils/fp-utils.js';
+import { loggingHook } from '../hooks/loggingHook';
+import { validationHook } from '../hooks/validationHook';
+import { errorHandlingHook } from '../hooks/errorHandlingHook';
+import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for middleware
 const MIDDLEWARE_PATTERNS = {
-  default: '**/middleware/middleware-*.js',
-  index: '**/middleware/index.js'
+  default: '**/*-middleware.js',
+  index: '**/middleware/**/index.js'
 };
 
-// Middleware validation schema
+// Middleware validation schema for the validation hook
 const middlewareSchema = {
-  name: String,
-  middleware: Function,
-  options: Object
+  name: 'string',
+  middleware: 'function',
+  options: 'object'
 };
 
-// Middleware validation
-const validateMiddleware = (module) => {
-  const { name, middleware } = module;
-  return name && 
-         middleware && 
-         typeof middleware === 'function' && 
-         middleware.length >= 3; // Express middleware must have at least 3 params (req, res, next)
-};
-
-// Middleware transformation
-const transformMiddleware = (module) => {
-  const { name, middleware, options = {} } = module;
-  return {
-    name,
-    middleware,
-    options,
-    type: 'middleware',
-    timestamp: Date.now()
-  };
-};
-
-// Create middleware loader
+/**
+ * Create the middleware loader with hooks for validation, context injection, logging, and error handling.
+ * @param {object} options Loader options
+ * @returns {function} Loader function
+ */
 export const createMiddlewareLoader = (options = {}) => {
   const loader = createLoader('middleware', {
     ...options,
     patterns: MIDDLEWARE_PATTERNS,
-    validate: validateMiddleware,
-    transform: transformMiddleware
+    validate: (module) => validationHook(module, middlewareSchema),
+    transform: (module, context) => {
+      // Inject context dependencies if needed (e.g., services)
+      return contextInjectionHook(module, { services: context?.services });
+    }
   });
 
-  return loader;
+  // Composable loader function
+  return async (context) => {
+    // Log the loading phase
+    loggingHook(context, 'Loading middleware modules');
+
+    // Wrap the loader in error handling
+    return errorHandlingHook(async () => {
+      const { context: loaderContext, cleanup } = await loader(context);
+      return { context: loaderContext, cleanup };
+    }, context);
+  };
 }; 

@@ -1,64 +1,48 @@
-import R from 'ramda';
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { pipeAsync } from '../utils/fp-utils.js';
+import { loggingHook } from '../hooks/loggingHook';
+import { validationHook } from '../hooks/validationHook';
+import { errorHandlingHook } from '../hooks/errorHandlingHook';
+import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for SDL files
 const SDL_PATTERNS = {
-  default: '**/schema-*.graphql',
-  index: '**/schema/index.graphql'
+  default: '**/*-sdl.js',
+  index: '**/sdl/**/index.js'
 };
 
-// SDL validation schema
+// SDL validation schema for the validation hook
 const sdlSchema = {
-  name: String,
-  schema: String,
-  buildSchema: Function, // Optional function to build schema with context
-  options: Object
+  name: 'string',
+  schema: 'string',
+  buildSchema: 'function', // Optional function to build schema with context
+  options: 'object'
 };
 
-// SDL validation
-const validateSdl = (module) => {
-  const { name, schema, buildSchema } = module;
-  const hasValidSchema = schema && typeof schema === 'string' &&
-    schema.includes('type') && // Basic check for GraphQL SDL
-    (schema.includes('Query') || schema.includes('Mutation') || schema.includes('Subscription'));
-  
-  const hasValidBuilder = !buildSchema || typeof buildSchema === 'function';
-  
-  return name && (hasValidSchema || hasValidBuilder);
-};
-
-// SDL transformation with context injection
-const transformSdl = (module) => {
-  const { name, schema, buildSchema, options = {} } = module;
-  
-  return {
-    name,
-    schema,
-    buildSchema, // Include the builder function for context injection
-    options,
-    type: 'sdl',
-    timestamp: Date.now(),
-    // Add context dependencies if specified
-    contextDeps: options.contextDeps || [],
-    // Add schema building phase
-    build: async (context) => {
-      if (buildSchema) {
-        return await buildSchema(context);
-      }
-      return schema;
-    }
-  };
-};
-
-// Create SDL loader
+/**
+ * Create the SDL loader with hooks for validation, context injection, logging, and error handling.
+ * @param {object} options Loader options
+ * @returns {function} Loader function
+ */
 export const createSdlLoader = (options = {}) => {
   const loader = createLoader('sdl', {
     ...options,
     patterns: SDL_PATTERNS,
-    validate: validateSdl,
-    transform: transformSdl
+    validate: (module) => validationHook(module, sdlSchema),
+    transform: (module, context) => {
+      // Inject context dependencies if needed (e.g., services)
+      return contextInjectionHook(module, { services: context?.services });
+    }
   });
 
-  return loader;
+  // Composable loader function
+  return async (context) => {
+    // Log the loading phase
+    loggingHook(context, 'Loading SDL modules');
+
+    // Wrap the loader in error handling
+    return errorHandlingHook(async () => {
+      const { context: loaderContext, cleanup } = await loader(context);
+      return { context: loaderContext, cleanup };
+    }, context);
+  };
 }; 

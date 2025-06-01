@@ -1,106 +1,49 @@
 import R from 'ramda';
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { pipeAsync } from '../utils/fp-utils.js';
+import { loggingHook } from '../hooks/loggingHook';
+import { validationHook } from '../hooks/validationHook';
+import { errorHandlingHook } from '../hooks/errorHandlingHook';
+import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for pubsub
 const PUBSUB_PATTERNS = {
-  default: '**/pubsub-*.js',
-  topics: '**/topics-*.js',
-  index: '**/pubsub/index.js'
+  default: '**/*-pubsub.js',
+  index: '**/pubsub/**/index.js'
 };
 
-// PubSub validation schema
+// PubSub validation schema for the validation hook
 const pubsubSchema = {
-  name: String,
-  topics: Object,
-  handlers: Object,
-  options: Object
+  name: 'string',
+  topics: 'object',
+  handlers: 'object',
+  options: 'object'
 };
 
-// PubSub validation
-const validatePubsub = (module) => {
-  const { name, topics, handlers } = module;
-  return name && 
-         topics && 
-         typeof topics === 'object' &&
-         handlers && 
-         typeof handlers === 'object';
-};
-
-// PubSub transformation
-const transformPubsub = (module) => {
-  const { name, topics, handlers, options = {} } = module;
-  
-  return {
-    name,
-    topics,
-    handlers,
-    options,
-    type: 'pubsub',
-    timestamp: Date.now(),
-    // Create PubSub instance
-    create: (context) => {
-      const { pubsub } = context.services;
-      
-      if (!pubsub) {
-        throw new Error('PubSub service not found in context');
-      }
-
-      // Register topics
-      const registeredTopics = {};
-      Object.entries(topics).forEach(([key, value]) => {
-        registeredTopics[key] = pubsub.asyncIterator(value);
-      });
-
-      // Register handlers
-      const registeredHandlers = {};
-      Object.entries(handlers).forEach(([topic, handler]) => {
-        if (typeof handler === 'function') {
-          registeredHandlers[topic] = async (payload) => {
-            try {
-              await handler(payload, context);
-            } catch (error) {
-              context.logger.error(`Error in ${name} handler for topic ${topic}:`, error);
-              throw error;
-            }
-          };
-        }
-      });
-
-      return {
-        // Topic access
-        topics: registeredTopics,
-        // Handler access
-        handlers: registeredHandlers,
-        // Publish method
-        publish: async (topic, payload) => {
-          const topicName = topics[topic];
-          if (!topicName) {
-            throw new Error(`Topic ${topic} not found in ${name}`);
-          }
-          await pubsub.publish(topicName, payload);
-        },
-        // Subscribe method
-        subscribe: (topic, callback) => {
-          const topicName = topics[topic];
-          if (!topicName) {
-            throw new Error(`Topic ${topic} not found in ${name}`);
-          }
-          return pubsub.subscribe(topicName, callback);
-        }
-      };
-    }
-  };
-};
-
-// Create pubsub loader
+/**
+ * Create the pubsub loader with hooks for validation, context injection, logging, and error handling.
+ * @param {object} options Loader options
+ * @returns {function} Loader function
+ */
 export const createPubsubLoader = (options = {}) => {
   const loader = createLoader('pubsub', {
     ...options,
     patterns: PUBSUB_PATTERNS,
-    validate: validatePubsub,
-    transform: transformPubsub
+    validate: (module) => validationHook(module, pubsubSchema),
+    transform: (module, context) => {
+      // Inject context dependencies if needed (e.g., services)
+      return contextInjectionHook(module, { services: context?.services });
+    }
   });
 
-  return loader;
+  // Composable loader function
+  return async (context) => {
+    // Log the loading phase
+    loggingHook(context, 'Loading pubsub modules');
+
+    // Wrap the loader in error handling
+    return errorHandlingHook(async () => {
+      const { context: loaderContext, cleanup } = await loader(context);
+      return { context: loaderContext, cleanup };
+    }, context);
+  };
 }; 
