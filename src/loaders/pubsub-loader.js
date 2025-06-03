@@ -7,8 +7,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for pubsub
 const PUBSUB_PATTERNS = {
-  default: '**/*-pubsub.js',
-  index: '**/pubsub/**/index.js'
+  default: '**/*.pubsub.js',
+  index: '**/pubsub/**/*.index.js'
 };
 
 // PubSub validation schema for the validation hook

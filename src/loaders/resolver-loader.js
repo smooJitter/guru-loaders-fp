@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for resolvers
 const RESOLVER_PATTERNS = {
-  default: '**/*-resolver.js',
-  index: '**/resolvers/**/index.js'
+  default: '**/*.resolver.js',
+  index: '**/resolvers/**/*.index.js'
 };
 
 // Resolver validation schema for the validation hook

@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for routes
 const ROUTE_PATTERNS = {
-  default: '**/*-route.js',
-  index: '**/routes/**/index.js'
+  default: '**/*.route.js',
+  index: '**/routes/**/*.index.js'
 };
 
 // Route validation schema for the validation hook

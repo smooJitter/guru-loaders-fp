@@ -8,7 +8,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads environment-specific configuration and variables, ensuring the application runs with the correct settings for each environment.
 
-- **File Pattern:** `**/*-env.js`
+- **File Pattern:** `**/*.env.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -36,7 +36,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Manages database connections, lifecycle, and seeds development/test data, providing a consistent interface for database operations.
 
-- **File Pattern:** `**/*-db.js`
+- **File Pattern:** `**/*.db.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -64,7 +64,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads and registers data models, defining schemas and options for data representation and manipulation.
 
-- **File Pattern:** `**/*-model.js`
+- **File Pattern:** `**/*.model.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -89,7 +89,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads business logic actions, encapsulating methods and metadata for application operations.
 
-- **File Pattern:** `**/*-actions.js`, `**/actions/**/index.js`
+- **File Pattern:** `**/*.actions.js`, `**/actions/**/*.index.js`
 - **Valid Locations:**
   - Any `-actions.js` file in `src/actions/` or `modules/**/actions/` (but not under the wrong type directory)
   - Any `index.js` file under an `actions/` directory (no matter how deep)
@@ -119,7 +119,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads GraphQL resolvers, defining query and mutation methods for data access and manipulation.
 
-- **File Pattern:** `**/*-resolver.js`
+- **File Pattern:** `**/*.resolver.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -144,7 +144,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads and merges GraphQL or other type definitions, ensuring consistent data structures across the application.
 
-- **File Pattern:** `**/*-type.js`
+- **File Pattern:** `**/*.type.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -168,7 +168,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads HTTP/Express routes, defining route handlers and options for web server operations.
 
-- **File Pattern:** `**/*-route.js`
+- **File Pattern:** `**/*.route.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -192,7 +192,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads JSON schemas or config objects, providing structured data for application configuration.
 
-- **File Pattern:** `**/*-json.js`
+- **File Pattern:** `**/*.json.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -216,7 +216,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads Express middleware functions, providing reusable logic for request processing.
 
-- **File Pattern:** `**/*-middleware.js`
+- **File Pattern:** `**/*.middleware.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -240,7 +240,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads GraphQL SDL files and schema builder functions, facilitating schema definition and management.
 
-- **File Pattern:** `**/*-sdl.js`
+- **File Pattern:** `**/*.sdl.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -264,7 +264,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads data faker functions for generating test and development data.
 
-- **File Pattern:** `**/*-faker.js`
+- **File Pattern:** `**/*.faker.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -288,7 +288,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads data loader functions for efficient data fetching and caching.
 
-- **File Pattern:** `**/*-data.js`
+- **File Pattern:** `**/*.data.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -312,7 +312,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads pub/sub event handlers and topics for event-driven architecture.
 
-- **File Pattern:** `**/*-pubsub.js`
+- **File Pattern:** `**/*.pubsub.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -336,7 +336,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads plugin modules that extend application functionality.
 
-- **File Pattern:** `**/*-plugin.js`
+- **File Pattern:** `**/*.plugin.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -360,7 +360,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads event handlers and listeners for application events.
 
-- **File Pattern:** `**/*-event.js`
+- **File Pattern:** `**/*.event.js`
 - **Module Shape:**
   ```js
   module.exports = {
@@ -384,7 +384,7 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 **Description:** Loads authentication and authorization handlers.
 
-- **File Pattern:** `**/*-auth.js`
+- **File Pattern:** `**/*.auth.js`
 - **Module Shape:**
   ```js
   module.exports = {

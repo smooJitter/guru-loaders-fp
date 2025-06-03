@@ -7,9 +7,9 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for auth
 const AUTH_PATTERNS = {
-  default: '**/auth-*.js',
-  roles: '**/roles-*.js',
-  guards: '**/guards-*.js',
+  default: '**/auth.*.js',
+  roles: '**/roles.*.js',
+  guards: '**/guards.*.js',
   index: '**/auth/index.js'
 };
 

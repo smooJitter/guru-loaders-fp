@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for data loaders
 const DATA_PATTERNS = {
-  default: '**/*-data.js',
-  index: '**/data/**/index.js'
+  default: '**/*.data.js',
+  index: '**/data/**/*.index.js'
 };
 
 // Data loader validation schema for the validation hook

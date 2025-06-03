@@ -5,9 +5,10 @@ import { errorHandlingHook } from '../hooks/errorHandlingHook';
 import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // Event patterns for file discovery
+// Matches files like *.event.js and events/**/*.index.js
 const EVENT_PATTERNS = {
-  default: '**/*-event.js',
-  index: '**/events/**/index.js'
+  default: '**/*.event.js',
+  index: '**/events/**/*.index.js'
 };
 
 // Event validation schema for the validation hook

@@ -2,6 +2,7 @@ import { createPipeline } from '../core/pipeline/create-pipeline.js';
 import { createModelLoader } from './model-loader.js';
 import { createTypeLoader } from './type-loader.js';
 import { createActionLoader } from './action-loader.js';
+import { createMethodLoader } from './method-loader.js';
 import { createResolverLoader } from './resolver-loader.js';
 import { createRouteLoader } from './route-loader.js';
 import { createJsonLoader } from './json-loader.js';
@@ -38,6 +39,7 @@ export const createLoaders = (options = {}) => ({
   models: createModelLoader(options),
   types: createTypeLoader(options),
   actions: createActionLoader(options),
+  methods: createMethodLoader(options),
   resolvers: createResolverLoader(options),
   routes: createRouteLoader(options),
   json: createJsonLoader(options),
@@ -58,6 +60,7 @@ export {
   createModelLoader,
   createTypeLoader,
   createActionLoader,
+  createMethodLoader,
   createResolverLoader,
   createRouteLoader,
   createJsonLoader,

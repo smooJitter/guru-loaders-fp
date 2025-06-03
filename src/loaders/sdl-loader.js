@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for SDL files
 const SDL_PATTERNS = {
-  default: '**/*-sdl.js',
-  index: '**/sdl/**/index.js'
+  default: '**/*.sdl.js',
+  index: '**/sdl/**/*.index.js'
 };
 
 // SDL validation schema for the validation hook

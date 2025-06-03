@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for middleware
 const MIDDLEWARE_PATTERNS = {
-  default: '**/*-middleware.js',
-  index: '**/middleware/**/index.js'
+  default: '**/*.middleware.js',
+  index: '**/middleware/**/*.index.js'
 };
 
 // Middleware validation schema for the validation hook

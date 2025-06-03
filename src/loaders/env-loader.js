@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for environment configs
 const ENV_PATTERNS = {
-  default: '**/*-environment.js',
-  index: '**/environment/**/index.js'
+  default: '**/*.environment.js',
+  index: '**/environment/**/*.index.js'
 };
 
 // Environment validation schema for the validation hook

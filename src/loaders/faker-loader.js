@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for fakers
 const FAKER_PATTERNS = {
-  default: '**/*-faker.js',
-  index: '**/faker/**/index.js'
+  default: '**/*.faker.js',
+  index: '**/faker/**/*.index.js'
 };
 
 // Faker validation schema for the validation hook

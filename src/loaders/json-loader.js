@@ -6,8 +6,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for JSON
 const JSON_PATTERNS = {
-  default: '**/*-json.js',
-  index: '**/json/**/index.js'
+  default: '**/*.json.js',
+  index: '**/json/**/*.index.js'
 };
 
 // JSON validation schema for the validation hook

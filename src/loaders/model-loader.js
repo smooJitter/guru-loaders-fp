@@ -10,8 +10,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for models
 const MODEL_PATTERNS = {
-  default: '**/*-model.js',
-  index: '**/models/**/index.js'
+  default: '**/*.model.js',
+  index: '**/models/**/*.index.js'
 };
 
 // Model validation schema

@@ -7,11 +7,11 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for database configs and fakers
 const DB_PATTERNS = {
-  default: '**/*-db.js',
-  index: '**/db/**/index.js',
+  default: '**/*.db.js',
+  index: '**/db/**/*.index.js',
   faker: {
-    default: '**/*-faker.js',
-    index: '**/faker/**/index.js'
+    default: '**/*.faker.js',
+    index: '**/faker/**/*.index.js'
   }
 };
 

@@ -7,8 +7,8 @@ import { contextInjectionHook } from '../hooks/contextInjectionHook';
 
 // File patterns for plugins
 const PLUGIN_PATTERNS = {
-  default: '**/*-plugin.js',
-  index: '**/plugin/**/index.js'
+  default: '**/*.plugin.js',
+  index: '**/plugin/**/*.index.js'
 };
 
 // Plugin validation schema for the validation hook
