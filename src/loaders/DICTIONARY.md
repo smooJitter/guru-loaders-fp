@@ -4,6 +4,15 @@ A comprehensive reference for all loader types in `src/loaders/`.
 
 ---
 
+## Loader Reliability & Testing Standards (2024)
+
+- **Defensive input validation:** All loaders must validate input and handle null, undefined, or invalid arguments gracefully.
+- **Error handling:** All loaders must catch and log errors, and never throw uncaught exceptions during normal operation.
+- **Test coverage:** Every loader and utility is covered by comprehensive tests for happy, edge, and failure paths, with 80%+ branch coverage required.
+- **Reliability:** Loaders are resilient to unexpected input and runtime errors, as demonstrated by the test suite.
+
+---
+
 ## env
 
 **Description:** Loads environment-specific configuration and variables, ensuring the application runs with the correct settings for each environment.
