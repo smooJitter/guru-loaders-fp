@@ -1,45 +1,98 @@
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { createEnvLoader } from '../env-loader.js';
-import { jest } from '@jest/globals';
 
-describe('Env Loader', () => {
-  let envLoader;
-  let mockContext;
+const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+const mockContext = { services: { logger: mockLogger }, config: { foo: 'bar' } };
 
+// Happy path: valid env factory
+const validEnvFactory = jest.fn(() => ({
+  name: 'user',
+  NODE_ENV: 'development',
+  API_URL: 'http://localhost:3000',
+  FEATURE_FLAG: false
+}));
+
+// Edge: duplicate name factories
+const duplicateEnvFactoryA = jest.fn(() => ({ name: 'dupe', NODE_ENV: 'dev' }));
+const duplicateEnvFactoryB = jest.fn(() => ({ name: 'dupe', NODE_ENV: 'prod' }));
+
+// Failure: invalid env (missing name)
+const invalidEnvFactory = jest.fn(() => ({ NODE_ENV: 'dev' }));
+
+// Failure: not an object
+const invalidExport = 42;
+
+describe('createEnvLoader', () => {
   beforeEach(() => {
-    mockContext = {
-      services: {
-        logger: {
-          error: jest.fn(),
-        },
+    jest.clearAllMocks();
+  });
+
+  it('loads and registers a valid env object from a factory (happy path)', async () => {
+    const files = ['user.environment.js'];
+    const modules = { 'user.environment.js': { default: validEnvFactory } };
+    const loader = createEnvLoader({
+      importModule: async (file, ctx) => {
+        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
+        return modules[file];
       },
-    };
-    envLoader = createEnvLoader();
+      findFiles: () => files
+    });
+    const { context: result } = await loader({ ...mockContext, envs: {} });
+    expect(result.envs).toBeDefined();
+    expect(result.envs.user).toMatchObject({
+      name: 'user',
+      NODE_ENV: 'development',
+      API_URL: 'http://localhost:3000',
+      FEATURE_FLAG: false
+    });
+    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  test('should validate env module correctly', () => {
-    const validModule = {
-      name: 'appEnv',
-      variables: { PORT: '3000', NODE_ENV: 'development' },
+  it('warns on duplicate env names (edge case)', async () => {
+    const files = ['dupeA.environment.js', 'dupeB.environment.js'];
+    const modules = {
+      'dupeA.environment.js': { default: duplicateEnvFactoryA },
+      'dupeB.environment.js': { default: duplicateEnvFactoryB }
     };
-    expect(envLoader.validate(validModule)).toBe(true);
+    const loader = createEnvLoader({
+      importModule: async (file, ctx) => {
+        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
+        return modules[file];
+      },
+      findFiles: () => files
+    });
+    const { context: result } = await loader({ ...mockContext, envs: {} });
+    expect(result.envs.dupe).toBeDefined();
+    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
-  test('should transform env module correctly', () => {
-    const module = {
-      name: 'appEnv',
-      variables: { PORT: '3000', NODE_ENV: 'development' },
-    };
-    const transformed = envLoader.transform(module);
-    expect(transformed.name).toBe('appEnv');
-    expect(transformed.variables.PORT).toBe('3000');
+  it('skips invalid env objects and does not register them (failure)', async () => {
+    const files = ['bad.environment.js'];
+    const modules = { 'bad.environment.js': { default: invalidEnvFactory } };
+    const loader = createEnvLoader({
+      importModule: async (file, ctx) => {
+        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
+        return modules[file];
+      },
+      findFiles: () => files
+    });
+    const { context: result } = await loader({ ...mockContext, envs: {} });
+    expect(result.envs).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
-  test('should create env instance correctly', async () => {
-    const module = {
-      name: 'appEnv',
-      variables: { PORT: '3000', NODE_ENV: 'development' },
-    };
-    const instance = await envLoader.create(mockContext);
-    expect(instance.variables).toBeDefined();
+  it('skips non-object modules and logs error (failure)', async () => {
+    const files = ['fail.environment.js'];
+    const modules = { 'fail.environment.js': { default: invalidExport } };
+    const loader = createEnvLoader({
+      importModule: async (file, ctx) => {
+        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
+        return modules[file];
+      },
+      findFiles: () => files
+    });
+    const { context: result } = await loader({ ...mockContext, envs: {} });
+    expect(result.envs).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
   });
 }); 

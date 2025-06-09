@@ -1,7 +1,8 @@
-import R from 'ramda';
+import * as R from 'ramda';
 import { findFiles, importAndApply, watchFiles } from './file-utils.js';
 import { validateModule, validateContext, detectCircularDeps, validateDependencies, validateExports } from './validate-utils.js';
-import { pipeAsync, safePipeAsync, mapAsync, filterAsync, groupByAsync } from './fp-utils.js';
+import { pipeAsync, safePipeAsync } from './async-pipeline-utils.js';
+import { mapAsync, filterAsync, groupByAsync } from './async-collection-utils.js';
 
 // Create loader
 export const createLoader = (type, options = {}) => {
@@ -9,14 +10,24 @@ export const createLoader = (type, options = {}) => {
     patterns = [],
     validate = true,
     watch = false,
-    logger = console
+    logger = console,
+    importModule = importAndApply,
+    findFiles: findFilesInjected = findFiles,
+    detectCircularDeps: detectCircularDepsInjected,
+    validateDependencies: validateDependenciesInjected,
+    validateExports: validateExportsInjected
   } = options;
+
+  // Use injected or default functions
+  const _detectCircularDeps = detectCircularDepsInjected || detectCircularDeps;
+  const _validateDependencies = validateDependenciesInjected || validateDependencies;
+  const _validateExports = validateExportsInjected || validateExports;
 
   // Find and load modules
   const loadModules = async (context) => {
-    const files = findFiles(patterns);
+    const files = findFilesInjected(patterns);
     const modules = await mapAsync(
-      file => importAndApply(file, context)
+      file => importModule(file, context)
     )(files);
 
     return modules;
@@ -24,10 +35,16 @@ export const createLoader = (type, options = {}) => {
 
   // Validate modules
   const validateModules = async (modules) => {
-    if (!validate) return modules;
-
+    let validateFn;
+    if (typeof options.validate === 'function') {
+      validateFn = options.validate;
+    } else if (options.validate === false) {
+      validateFn = () => true;
+    } else {
+      validateFn = (type, module) => validateModule(type, module);
+    }
     const validModules = await filterAsync(
-      module => validateModule(type, module)
+      module => validateFn(type, module)
     )(modules);
 
     if (validModules.length !== modules.length) {
@@ -35,34 +52,6 @@ export const createLoader = (type, options = {}) => {
     }
 
     return validModules;
-  };
-
-  // Create registry
-  const createRegistry = (modules) => {
-    return modules.reduce((registry, module) => {
-      const { name, ...rest } = module;
-      return R.assocPath([name], rest, registry);
-    }, {});
-  };
-
-  // Setup hot reload
-  const setupHotReload = (context) => {
-    if (!watch) return () => {};
-
-    const cleanup = watchFiles(patterns, async (event, file) => {
-      try {
-        const module = await importAndApply(file, context);
-        if (validateModule(type, module)) {
-          const { name, ...rest } = module;
-          context[type] = R.assocPath([name], rest, context[type]);
-          logger.info(`Hot reloaded ${type}: ${name}`);
-        }
-      } catch (error) {
-        logger.error(`Error hot reloading ${type}:`, error);
-      }
-    });
-
-    return cleanup;
   };
 
   // Main loader function
@@ -78,27 +67,47 @@ export const createLoader = (type, options = {}) => {
       )(context);
 
       // Check for circular dependencies
-      if (detectCircularDeps(modules)) {
+      if (_detectCircularDeps(modules)) {
         throw new Error(`Circular dependencies detected in ${type} modules`);
       }
 
       // Validate dependencies
       await Promise.all(
-        modules.map(module => validateDependencies(module, context))
+        modules.map(module => _validateDependencies(module, context))
       );
 
       // Validate exports
       await Promise.all(
-        modules.map(module => validateExports(type, module))
+        modules.map(module => _validateExports(type, module))
       );
 
       // Create registry
-      const registry = createRegistry(modules);
+      const transformFn = options.transform || ((module, ctx) => module);
+      const registry = buildRegistry(modules, context, transformFn);
 
       // Update context
       context[type] = registry;
 
       // Setup hot reload
+      const setupHotReload = (context) => {
+        if (!watch) return () => {};
+
+        const cleanup = watchFiles(patterns, async (event, file) => {
+          try {
+            const module = await importModule(file, context);
+            if (validateModule(type, module)) {
+              const { name, ...rest } = module;
+              context[type] = R.assocPath([name], rest, context[type]);
+              logger.info(`Hot reloaded ${type}: ${name}`);
+            }
+          } catch (error) {
+            logger.error(`Error hot reloading ${type}:`, error);
+          }
+        });
+
+        return cleanup;
+      };
+
       const cleanup = setupHotReload(context);
 
       return {
@@ -197,4 +206,42 @@ export const createLoaderWithTransformation = (type, transformers = [], options 
       cleanup
     };
   };
-}; 
+};
+
+export function buildRegistry(modules, context, transformFn) {
+  // Defensive: always return an object, skip invalid modules, log if possible
+  const logger = context?.services?.logger;
+  if (!modules || (typeof modules !== 'object' && !Array.isArray(modules))) {
+    // Defensive: return empty object instead of throwing
+    logger?.debug?.('[buildRegistry] Input is not an array/object, returning empty registry:', modules);
+    return {};
+  }
+  const moduleList = Array.isArray(modules)
+    ? modules
+    : Object.values(modules).filter(m => m && typeof m === 'object');
+  return moduleList
+    .map(module => {
+      if (!module || typeof module !== 'object') {
+        logger?.debug?.('[buildRegistry] Skipping non-object module:', module);
+        return null;
+      }
+      if (!module.name || typeof module.name !== 'string') {
+        logger?.error?.('[buildRegistry] Skipping module missing name:', module);
+        return null;
+      }
+      const transformed = transformFn ? transformFn(module, context) : module;
+      if (!transformed || typeof transformed !== 'object') {
+        logger?.error?.('[buildRegistry] Skipping module with invalid transform:', transformed);
+        return null;
+      }
+      return [transformed.name, transformed];
+    })
+    .filter(Boolean)
+    .reduce((registry, [name, mod]) => {
+      if (registry[name]) {
+        logger?.warn?.(`[buildRegistry] Duplicate module name: ${name}`);
+      }
+      registry[name] = mod;
+      return registry;
+    }, {});
+} 

@@ -1,12 +1,7 @@
-import R from 'ramda';
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { pipeAsync } from '../utils/fp-utils.js';
+import * as R from 'ramda';
 import mongoose from 'mongoose';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { lifecycleHook } from '../hooks/lifecycleHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, errorHandlingHook, lifecycleHook } from '../hooks/index.js';
+import { findFiles as defaultFindFiles, importAndApply as defaultImportModule } from '../utils/file-utils.js';
 
 // File patterns for models
 const MODEL_PATTERNS = {
@@ -14,71 +9,53 @@ const MODEL_PATTERNS = {
   index: '**/models/**/*.index.js'
 };
 
-// Model validation schema
-const modelSchema = {
-  // Can be either a function (factory) or a model
-  default: ['function', 'object']
-};
-
-// Model validation
-const validateModel = (module) => {
-  // Valid if it's a factory function or a model
-  return typeof module.default === 'function' || 
-         (module.default && module.default.modelName);
-};
-
-// Model transformation
-const transformModel = (module, context) => {
-  const { mongooseConnection } = context;
+// Extract a model from a module (either direct export or factory)
+const extractModel = (module, mongooseConnection) => {
+  if (!module || typeof module !== 'object') return undefined;
   let model;
-
   if (typeof module.default === 'function') {
-    // Handle factory function pattern
     model = module.default({ mongooseConnection, additionalPlugins: [] });
   } else {
-    // Handle direct model export pattern
     model = module.default;
   }
-
-  return {
-    name: model.modelName,
-    model,
-    type: 'model',
-    timestamp: Date.now()
-  };
+  return model && model.modelName ? model : undefined;
 };
 
 // Create model loader with Mongoose connection
 export const createModelLoader = (mongooseConnection, options = {}) => {
-  const loader = createLoader('model', {
-    ...options,
-    patterns: MODEL_PATTERNS,
-    validate: validateModel,
-    transform: (module, context) => {
-      const modelObject = transformModel(module, { ...context, mongooseConnection });
-      return {
-        ...modelObject,
-        type: 'model',
-        timestamp: Date.now()
-      };
-    }
-  });
+  const patterns = options.patterns || MODEL_PATTERNS;
+  const findFiles = options.findFiles || defaultFindFiles;
+  const importModule = options.importModule || defaultImportModule;
 
   return async (context) => {
-    // Use logging hook
-    loggingHook(context, 'Loading models');
-
-    // Use error handling hook
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-
-      // Use lifecycle hook
-      await lifecycleHook([() => console.log('Model loader initialized')], loaderContext);
-
-      return {
-        context: loaderContext,
-        cleanup
-      };
+      loggingHook(context, 'Loading models');
+      const files = findFiles(patterns.default);
+      const modules = await Promise.all(files.map(file => importModule(file, context)));
+      const registry = {};
+      // Prefer logger from context, then options, then console
+      const logger =
+        context.logger ||
+        (context.services && context.services.logger) ||
+        options.logger ||
+        console;
+      for (let i = 0; i < modules.length; i++) {
+        let model;
+        try {
+          model = extractModel(modules[i], mongooseConnection);
+        } catch (err) {
+          logger.warn && logger.warn(`[model-loader] Error extracting model from file: ${files[i]}: ${err.message}`);
+          continue;
+        }
+        if (model) {
+          registry[model.modelName] = model;
+        } else {
+          logger.warn && logger.warn(`[model-loader] Invalid or missing model in file: ${files[i]}`);
+        }
+      }
+      context.models = registry;
+      await lifecycleHook([() => console.log('Model loader initialized')], context);
+      return { context };
     }, context);
   };
 }; 

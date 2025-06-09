@@ -1,8 +1,4 @@
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 
 // File patterns for SDL files
 const SDL_PATTERNS = {
@@ -10,60 +6,67 @@ const SDL_PATTERNS = {
   index: '**/sdl/**/*.index.js'
 };
 
-// SDL validation schema for the validation hook
+// SDL validation schema
 const sdlSchema = {
   name: 'string',
   schema: 'string',
-  buildSchema: ['function', 'undefined'], // Optional function to build schema with context
+  buildSchema: ['function', 'undefined'],
   options: ['object', 'undefined']
 };
 
-/**
- * Create the SDL loader with hooks for validation, context injection, logging, and error handling.
- * Supports modules that export a factory function or a plain object/array, and a single or multiple SDL objects.
- * @param {object} options Loader options
- * @returns {function} Loader function
- */
+// Extract SDL(s) from a module (factory or object/array)
+const extractSdls = (module, context) => {
+  if (!module || typeof module !== 'object') return [];
+  const mod = module.default || module;
+  const sdls = typeof mod === 'function' ? mod(context) : mod;
+  return Array.isArray(sdls) ? sdls : [sdls];
+};
+
 export const createSdlLoader = (options = {}) => {
-  const loader = createLoader('sdl', {
-    ...options,
-    patterns: SDL_PATTERNS,
-    validate: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const sdlObjs = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      const sdlList = Array.isArray(sdlObjs) ? sdlObjs : [sdlObjs];
-      // Validate all SDL objects in the array
-      return sdlList.every(sdlObj => validationHook(sdlObj, sdlSchema));
-    },
-    transform: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const sdlObjs = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      const sdlList = Array.isArray(sdlObjs) ? sdlObjs : [sdlObjs];
-      // Inject context/services if needed
-      return sdlList.map(sdlObj => {
-        const injected = contextInjectionHook(sdlObj, { services: context?.services, config: context?.config });
-        return {
-          ...injected,
-          type: 'sdl',
-          timestamp: Date.now()
-        };
-      });
-    }
-  });
+  const patterns = options.patterns || SDL_PATTERNS;
+  const findFiles = options.findFiles;
+  const importModule = options.importModule;
 
-  // Composable loader function
   return async (context) => {
-    // Log the loading phase
-    loggingHook(context, 'Loading SDL modules');
-
-    // Wrap the loader in error handling
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
+      loggingHook(context, 'Loading SDL modules');
+      const files = findFiles ? findFiles(patterns.default) : [];
+      const modules = importModule
+        ? await Promise.all(files.map(file => importModule(file, context)))
+        : [];
+      const registry = {};
+      const logger =
+        context.logger ||
+        (context.services && context.services.logger) ||
+        options.logger ||
+        console;
+      for (let i = 0; i < modules.length; i++) {
+        try {
+          const sdls = extractSdls(modules[i], context);
+          for (const sdl of sdls) {
+            validationHook(sdl, sdlSchema);
+            const injected = contextInjectionHook(sdl, { services: context?.services });
+            const finalObj = {
+              ...injected,
+              type: 'sdl',
+              timestamp: Date.now()
+            };
+            if (finalObj.name) {
+              if (registry[finalObj.name]) {
+                logger.warn && logger.warn('[sdl-loader] Duplicate SDL names found:', [finalObj.name]);
+              }
+              registry[finalObj.name] = finalObj;
+            } else {
+              throw new Error('Missing name property');
+            }
+          }
+        } catch (err) {
+          logger.warn && logger.warn(`[sdl-loader] Invalid or missing SDL in file: ${files[i]}: ${err.message}`);
+        }
+      }
+      context.sdls = registry;
+      logger.info && logger.info(`[sdl-loader] Loaded SDLs: ${Object.keys(registry).join(', ')}`);
+      return { context };
     }, context);
   };
 }; 

@@ -1,8 +1,5 @@
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { findFiles as defaultFindFiles, importAndApply as defaultImportModule } from '../utils/file-utils.js';
 
 // File patterns for middleware
 const MIDDLEWARE_PATTERNS = {
@@ -17,6 +14,15 @@ const middlewareSchema = {
   options: ['object', 'undefined']
 };
 
+// Extract a middleware object from a module (factory or object)
+const extractMiddleware = (module, context) => {
+  if (!module || typeof module !== 'object') return undefined;
+  if (typeof module.default === 'function') {
+    return module.default({ services: context?.services, config: context?.config });
+  }
+  return module.default || module;
+};
+
 /**
  * Create the middleware loader with hooks for validation, context injection, logging, and error handling.
  * Supports modules that export a factory function or a plain object/array, and a single or multiple middleware objects.
@@ -24,45 +30,48 @@ const middlewareSchema = {
  * @returns {function} Loader function
  */
 export const createMiddlewareLoader = (options = {}) => {
-  const loader = createLoader('middleware', {
-    ...options,
-    patterns: MIDDLEWARE_PATTERNS,
-    validate: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const mwObjs = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      const mwList = Array.isArray(mwObjs) ? mwObjs : [mwObjs];
-      // Validate all middleware objects in the array
-      return mwList.every(mwObj => validationHook(mwObj, middlewareSchema));
-    },
-    transform: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const mwObjs = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      const mwList = Array.isArray(mwObjs) ? mwObjs : [mwObjs];
-      // Inject context/services if needed
-      return mwList.map(mwObj => {
-        const injected = contextInjectionHook(mwObj, { services: context?.services, config: context?.config });
-        return {
-          ...injected,
-          type: 'middleware',
-          timestamp: Date.now()
-        };
-      });
-    }
-  });
+  const patterns = options.patterns || MIDDLEWARE_PATTERNS;
+  const findFiles = options.findFiles || defaultFindFiles;
+  const importModule = options.importModule || defaultImportModule;
 
-  // Composable loader function
   return async (context) => {
-    // Log the loading phase
-    loggingHook(context, 'Loading middleware modules');
-
-    // Wrap the loader in error handling
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
+      loggingHook(context, 'Loading middleware modules');
+      const files = findFiles(patterns.default);
+      const modules = await Promise.all(files.map(file => importModule(file, context)));
+      const registry = {};
+      const logger =
+        context.logger ||
+        (context.services && context.services.logger) ||
+        options.logger ||
+        console;
+      for (let i = 0; i < modules.length; i++) {
+        let mwObj;
+        try {
+          mwObj = extractMiddleware(modules[i], context);
+          if (!mwObj) throw new Error('Module did not export a valid object or factory');
+          validationHook(mwObj, middlewareSchema);
+          // Context injection and transform
+          const injected = contextInjectionHook(mwObj, { services: context?.services, config: context?.config });
+          const finalObj = {
+            ...injected,
+            type: 'middleware',
+            timestamp: Date.now()
+          };
+          if (finalObj.name && finalObj.middleware) {
+            if (registry[finalObj.name]) {
+              logger.warn && logger.warn('[middleware-loader] Duplicate middleware names found:', [finalObj.name]);
+            }
+            registry[finalObj.name] = finalObj;
+          } else {
+            throw new Error('Missing name or middleware property');
+          }
+        } catch (err) {
+          logger.warn && logger.warn(`[middleware-loader] Invalid or missing middleware in file: ${files[i]}: ${err.message}`);
+        }
+      }
+      context.middleware = registry;
+      return { context };
     }, context);
   };
 }; 

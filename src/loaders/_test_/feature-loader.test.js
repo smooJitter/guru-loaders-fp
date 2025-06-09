@@ -48,14 +48,13 @@ describe('loadFeatures', () => {
 
   it('loads and registers features (happy path)', async () => {
     const mockContext = R.clone(baseContext);
-    const result = await loadFeatures({
+    const ctx = await loadFeatures({
       logger: mockLogger,
       findFiles: mockFindFiles,
       context: mockContext,
       discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
       watch: false
     });
-    const ctx = result || mockContext;
     expect(ctx.typeComposers).toHaveProperty('fooTC');
     expect(ctx.typeComposers.fooTC.value).toBe(1);
     expect(ctx.typeComposers).toHaveProperty('barTC');
@@ -66,14 +65,14 @@ describe('loadFeatures', () => {
   it('handles no features found (edge case)', async () => {
     const mockContext = R.clone(baseContext);
     mockFindFiles.mockResolvedValueOnce([]);
-    await loadFeatures({
+    const ctx = await loadFeatures({
       logger: mockLogger,
       findFiles: mockFindFiles,
       context: mockContext,
       discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
       watch: false
     });
-    expect(Object.keys(mockContext.typeComposers)).toEqual([]);
+    expect(Object.keys(ctx.typeComposers)).toEqual([]);
   });
 
   it('logs and throws on artifact error (failure path)', async () => {
@@ -91,17 +90,17 @@ describe('loadFeatures', () => {
 
   it('loads features with injected mocks', async () => {
     const mockContext = R.clone(baseContext);
-    const result = await loadFeatures({
+    const ctx = await loadFeatures({
       logger: mockLogger,
       findFiles: mockFindFiles,
       context: mockContext,
       discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
       watch: false
     });
-    expect(result.typeComposers).toHaveProperty('fooTC');
-    expect(result.typeComposers.fooTC.value).toBe(1);
-    expect(result.typeComposers).toHaveProperty('barTC');
-    expect(result.typeComposers.barTC.value).toBe(2);
+    expect(ctx.typeComposers).toHaveProperty('fooTC');
+    expect(ctx.typeComposers.fooTC.value).toBe(1);
+    expect(ctx.typeComposers).toHaveProperty('barTC');
+    expect(ctx.typeComposers.barTC.value).toBe(2);
     expect(mockFindFiles).toHaveBeenCalled();
     expect(mockDiscoverFeatureArtifacts).toHaveBeenCalled();
   });

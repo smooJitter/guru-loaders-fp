@@ -1,8 +1,8 @@
-import R from 'ramda';
-import { pipeAsync } from '../../../utils/fp-utils.js';
-import { findFiles } from '../../../utils/file-utils.js';
-import { validateModule, detectCircularDeps, validateDependencies, validateExports } from '../../../utils/validate-utils.js';
-import { mapAsync, filterAsync } from '../../../utils/fp-utils.js';
+import * as R from 'ramda';
+import { pipeAsync } from '../../utils/async-pipeline-utils.js';
+import { mapAsync, filterAsync } from '../../utils/async-collection-utils.js';
+import { findFiles as defaultFindFiles } from '../../utils/file-utils.js';
+import { validateModule as defaultValidateModule, detectCircularDeps as defaultDetectCircularDeps, validateDependencies as defaultValidateDependencies, validateExports as defaultValidateExports } from '../../utils/validate-utils.js';
 
 // Create loader factory
 export const createLoader = R.curry((type, options = {}) => {
@@ -10,7 +10,13 @@ export const createLoader = R.curry((type, options = {}) => {
     patterns = [`**/*.${type}.js`],
     watch = false,
     plugins = [],
-    logger = console
+    logger = console,
+    importModule = (file) => import(file), // default to dynamic import
+    findFiles = defaultFindFiles, // allow injection for testability
+    validateModule = defaultValidateModule,
+    detectCircularDeps = defaultDetectCircularDeps,
+    validateDependencies = defaultValidateDependencies,
+    validateExports = defaultValidateExports
   } = options;
 
   // Create base pipeline steps
@@ -25,7 +31,7 @@ export const createLoader = R.curry((type, options = {}) => {
     loadModules: async (context) => {
       const { files } = context;
       const modules = await mapAsync(
-        file => import(file).then(m => m.default)
+        file => importModule(file).then(m => m.default)
       )(files);
       return { ...context, modules };
     },
@@ -84,7 +90,7 @@ export const createLoader = R.curry((type, options = {}) => {
   const pipeline = async (context) => {
     try {
       // Run before plugins
-      const beforeContext = await R.pipeP(
+      const beforeContext = await pipeAsync(
         ...plugins.map(plugin => plugin.before || R.identity)
       )(context);
 
@@ -97,11 +103,15 @@ export const createLoader = R.curry((type, options = {}) => {
       )(beforeContext);
 
       // Run after plugins
-      return R.pipeP(
+      return pipeAsync(
         ...plugins.map(plugin => plugin.after || R.identity)
       )(result);
     } catch (error) {
-      logger.error(`Error in ${type} loader:`, error);
+      if (typeof logger.error === 'function') {
+        logger.error(`Error in ${type} loader:`, error);
+      } else {
+        console.error(`Error in ${type} loader:`, error);
+      }
       throw error;
     }
   };

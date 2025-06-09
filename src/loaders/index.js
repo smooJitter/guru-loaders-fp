@@ -3,6 +3,7 @@ import { createModelLoader } from './model-loader.js';
 import { createTypeLoader } from './type-loader.js';
 import { createActionLoader } from './action-loader.js';
 import { createMethodLoader } from './method-loader.js';
+import { createServiceLoader } from './service-loader.js';
 import { createResolverLoader } from './resolver-loader.js';
 import { createRouteLoader } from './route-loader.js';
 import { createJsonLoader } from './json-loader.js';
@@ -40,6 +41,7 @@ export const createLoaders = (options = {}) => ({
   types: createTypeLoader(options),
   actions: createActionLoader(options),
   methods: createMethodLoader(options),
+  services: createServiceLoader(options),
   resolvers: createResolverLoader(options),
   routes: createRouteLoader(options),
   json: createJsonLoader(options),
@@ -61,6 +63,7 @@ export {
   createTypeLoader,
   createActionLoader,
   createMethodLoader,
+  createServiceLoader,
   createResolverLoader,
   createRouteLoader,
   createJsonLoader,

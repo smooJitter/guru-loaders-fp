@@ -1,69 +1,73 @@
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 
-// Event patterns for file discovery
-// Matches files like *.event.js and events/**/*.index.js
+// File patterns for event modules
 const EVENT_PATTERNS = {
   default: '**/*.event.js',
   index: '**/events/**/*.index.js'
 };
 
-// Event validation schema for the validation hook
+// Event validation schema
 const eventSchema = {
   name: 'string',
   handler: 'function',
   options: ['object', 'undefined']
 };
 
-/**
- * Create the event loader with hooks for validation, context injection, logging, and error handling.
- * Supports modules that export a factory function returning a single event or an array of events.
- * @param {object} options Loader options
- * @returns {function} Loader function
- */
+// Extract event(s) from a module (factory or object/array)
+const extractEvents = (module, context) => {
+  if (!module || typeof module !== 'object') return [];
+  const mod = module.default || module;
+  const events = typeof mod === 'function' ? mod(context) : mod;
+  return Array.isArray(events) ? events : [events];
+};
+
 export const createEventLoader = (options = {}) => {
-  const loader = createLoader('event', {
-    ...options,
-    patterns: EVENT_PATTERNS,
-    validate: (module, context) => {
-      // Call the factory with context/services for validation
-      const events = typeof module.default === 'function'
-        ? module.default({ services: context?.services })
-        : module.default;
-      const eventList = Array.isArray(events) ? events : [events];
-      // Validate all events in the array
-      return eventList.every(event => validationHook(event, eventSchema));
-    },
-    transform: (module, context) => {
-      // Call the factory with context/services for transformation
-      const events = typeof module.default === 'function'
-        ? module.default({ services: context?.services })
-        : module.default;
-      const eventList = Array.isArray(events) ? events : [events];
-      // Inject context into each event handler if needed
-      return eventList.map(event => {
-        const injected = contextInjectionHook(event, { services: context?.services });
-        return {
-          ...injected,
-          type: 'event',
-          timestamp: Date.now()
-        };
-      });
-    }
-  });
+  const patterns = options.patterns || EVENT_PATTERNS;
+  const findFiles = options.findFiles;
+  const importModule = options.importModule;
 
-  // Composable loader function
   return async (context) => {
-    // Log the loading phase
-    loggingHook(context, 'Loading event modules');
-
-    // Wrap the loader in error handling
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
+      loggingHook(context, 'Loading event modules');
+      const files = findFiles ? findFiles(patterns.default) : [];
+      const modules = importModule
+        ? await Promise.all(files.map(file => importModule(file, context)))
+        : [];
+      const registry = {};
+      const logger =
+        context.logger ||
+        (context.services && context.services.logger) ||
+        options.logger ||
+        console;
+      let loadedNames = [];
+      for (let i = 0; i < modules.length; i++) {
+        try {
+          const events = extractEvents(modules[i], context);
+          for (const event of events) {
+            validationHook(event, eventSchema);
+            const injected = contextInjectionHook(event, { services: context?.services });
+            const finalObj = {
+              ...injected,
+              type: 'event',
+              timestamp: Date.now()
+            };
+            if (finalObj.name) {
+              if (registry[finalObj.name]) {
+                logger.warn && logger.warn('[event-loader] Duplicate event names found:', [finalObj.name]);
+              }
+              registry[finalObj.name] = finalObj;
+              loadedNames.push(finalObj.name);
+            } else {
+              throw new Error('Missing name property');
+            }
+          }
+        } catch (err) {
+          logger.warn && logger.warn(`[event-loader] Invalid or missing event in file: ${files[i]}: ${err.message}`);
+        }
+      }
+      context.events = registry;
+      logger.info && logger.info(`[event-loader] Loaded events: ${Object.keys(registry).join(', ')}`);
+      return { context };
     }, context);
   };
 }; 

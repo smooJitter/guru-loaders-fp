@@ -1,8 +1,5 @@
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 
 // File patterns for environment configs
 const ENV_PATTERNS = {
@@ -10,11 +7,19 @@ const ENV_PATTERNS = {
   index: '**/environment/**/*.index.js'
 };
 
-// Environment validation schema for the validation hook
+// Environment validation schema: only require 'name' (string)
 const envSchema = {
-  name: 'string',
-  config: 'object',
-  options: 'object'
+  name: 'string'
+};
+
+// Extract an env object from a module (factory or object)
+const extractEnv = (module, context) => {
+  if (!module || typeof module !== 'object') return undefined;
+  const mod = module.default || module;
+  if (typeof mod === 'function') {
+    return mod(context);
+  }
+  return mod;
 };
 
 /**
@@ -23,25 +28,50 @@ const envSchema = {
  * @returns {function} Loader function
  */
 export const createEnvLoader = (options = {}) => {
-  const loader = createLoader('env', {
-    ...options,
-    patterns: ENV_PATTERNS,
-    validate: (module) => validationHook(module, envSchema),
-    transform: (module, context) => {
-      // Inject context dependencies if needed (e.g., services)
-      return contextInjectionHook(module, { services: context?.services });
-    }
-  });
+  const patterns = options.patterns || ENV_PATTERNS;
+  const findFiles = options.findFiles;
+  const importModule = options.importModule;
 
-  // Composable loader function
   return async (context) => {
-    // Log the loading phase
-    loggingHook(context, 'Loading environment modules');
-
-    // Wrap the loader in error handling
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
+      loggingHook(context, 'Loading environment modules');
+      const files = findFiles ? findFiles(patterns.default) : [];
+      const modules = importModule
+        ? await Promise.all(files.map(file => importModule(file, context)))
+        : [];
+      const registry = {};
+      const logger =
+        context.logger ||
+        (context.services && context.services.logger) ||
+        options.logger ||
+        console;
+      for (let i = 0; i < modules.length; i++) {
+        let envObj;
+        try {
+          envObj = await extractEnv(modules[i], context);
+          if (!envObj) throw new Error('Module did not export a valid object or factory');
+          validationHook(envObj, envSchema);
+          // Context injection and transform
+          const injected = contextInjectionHook(envObj, { services: context?.services });
+          const finalObj = {
+            ...injected,
+            type: 'env',
+            timestamp: Date.now()
+          };
+          if (finalObj.name) {
+            if (registry[finalObj.name]) {
+              logger.warn && logger.warn('[env-loader] Duplicate env names found:', [finalObj.name]);
+            }
+            registry[finalObj.name] = finalObj;
+          } else {
+            throw new Error('Missing name property');
+          }
+        } catch (err) {
+          logger.warn && logger.warn(`[env-loader] Invalid or missing env in file: ${files[i]}: ${err.message}`);
+        }
+      }
+      context.envs = registry;
+      return { context };
     }, context);
   };
 }; 

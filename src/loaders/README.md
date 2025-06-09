@@ -103,6 +103,45 @@ export const createDataLoader = (options = {}) => {
 };
 ```
 
+## 🌱 Example: Env Loader
+
+```js
+// src/loaders/env-loader.js
+export const createEnvLoader = (options = {}) => {
+  const loader = createLoader('env', {
+    ...options,
+    patterns: '**/configs/**/*.environment.js',
+    validate: (mod) => mod.name && typeof mod === 'object',
+    transform: (mod) => ({ ...mod, type: 'env', timestamp: Date.now() })
+  });
+  return loader;
+};
+```
+
+### .environment.js File Example
+
+```js
+// modules/user/configs/user.environment.js
+export default (context) => ({
+  name: 'user',
+  NODE_ENV: process.env.NODE_ENV,
+  API_URL: process.env.API_URL || 'http://localhost:3000',
+  FEATURE_FLAG: context?.featureFlag || false,
+});
+```
+
+### Context Key and Access
+
+- All loaded environments are registered at `context.envs[<name>]`.
+- Example access:
+  ```js
+  const userEnv = context.envs.user;
+  const apiUrl = context.envs.user.API_URL;
+  ```
+
+- Supports both factory and plain object exports.
+- Warns on duplicate names or invalid modules.
+
 ---
 
 ## 🧬 Extending Loaders

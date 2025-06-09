@@ -1,18 +1,22 @@
-import R from 'ramda';
-import { createLoaderWithMiddleware } from '../utils/loader-utils.js';
-import { pipeAsync } from '../utils/fp-utils.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+// LEGACY: This loader only supports the { name, methods } pattern. Use action-loader-2 for modern namespaced/array/factory patterns.
+// For new code, prefer action-loader-2.
+//
 
-// File patterns for actions
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { createLoaderWithMiddleware } from '../utils/loader-utils.js';
+import { getActionsFromModule, validateActionModule } from './lib/action-loader-utils.js';
+
+/**
+ * File patterns for actions
+ */
 const ACTION_PATTERNS = {
   default: '**/*.actions.js',
   index: '**/actions/**/*.index.js'
 };
 
-// Action validation schema
+/**
+ * Action validation schema (for meta/options, not enforced strictly)
+ */
 const actionSchema = {
   name: ['string', 'undefined'],
   methods: ['object', 'undefined'],
@@ -20,79 +24,65 @@ const actionSchema = {
   options: ['object', 'undefined']
 };
 
-// Action validation
-const validateAction = (module) => {
-  // Accept if methods is an object, or if there are function properties (excluding name/meta/options)
-  if (module.methods && typeof module.methods === 'object') return true;
-  // Check for direct function exports (excluding name/meta/options)
-  const fnKeys = Object.keys(module).filter(
-    (k) => !['name', 'meta', 'options', 'methods'].includes(k) && typeof module[k] === 'function'
-  );
-  return fnKeys.length > 0;
-};
-
-// Action transformation
-const transformAction = (module) => {
-  const { name, meta = {}, options = {} } = module;
-  let methods;
-  if (module.methods && typeof module.methods === 'object') {
-    methods = module.methods;
-  } else {
-    // Use all function properties except name/meta/options
-    methods = R.pickBy(
-      (v, k) => typeof v === 'function' && !['name', 'meta', 'options', 'methods'].includes(k),
-      module
-    );
-  }
+/**
+ * Transform an action function into the loader format, injecting context and actions.
+ * @param {string} name - Action name
+ * @param {function} fn - Action function
+ * @param {object} context - Loader context
+ * @param {object} actions - All actions
+ * @returns {object}
+ */
+const transformAction = (name, fn, context, actions) => {
   return {
     name,
-    methods,
-    meta,
-    options,
+    method: (args) => fn({ ...args, context, actions }),
     type: 'actions',
     timestamp: Date.now()
   };
 };
 
-// Middleware example
-const logMiddleware = async (context) => {
-  console.log('Loading actions with context:', context);
-  return context;
+// Utility to flatten and aggregate actions from modules
+const extractActions = (modules, context) => {
+  const registry = {};
+  const logger = context?.services?.logger;
+  if (!Array.isArray(modules) || modules.length === 0) {
+    // Defensive: always return an object
+    return registry;
+  }
+  for (const mod of modules) {
+    if (!mod || typeof mod !== 'object') {
+      logger?.debug?.('[action-loader] Skipping non-object module:', mod);
+      logger?.error?.('[action-loader] Invalid module (not an object):', mod);
+      continue;
+    }
+    // Defensive: validate shape
+    if (typeof mod.name !== 'string' || typeof mod.methods !== 'object' || mod.methods === null) {
+      logger?.error?.('[action-loader] Invalid module shape (expected { name, methods }):', mod);
+      continue;
+    }
+    if (registry[mod.name]) {
+      logger?.warn?.(`[action-loader] Duplicate action name: ${mod.name}`);
+    }
+    // Only include function-valued methods
+    const validMethods = Object.entries(mod.methods).filter(([, fn]) => typeof fn === 'function');
+    if (validMethods.length === 0) {
+      logger?.error?.('[action-loader] No valid action functions found in module:', mod);
+    }
+    // Register as { method: fn } for legacy compatibility
+    registry[mod.name] = {
+      method: validMethods.length > 0 ? ((args) => validMethods[0][1]({ ...args, context, actions: registry })) : undefined
+    };
+  }
+  return registry;
 };
 
-// Create action loader with utilities
-export const createActionLoader = (context, actions, options = {}) => {
-  const loader = createLoaderWithMiddleware('actions', [
-    // Use logging hook as middleware
-    (ctx) => loggingHook(ctx, 'Loading actions')
-  ], {
-    ...options,
-    patterns: ACTION_PATTERNS,
-    validate: (module) => {
-      // Use validation hook
-      return validationHook(module, actionSchema) && validateAction(module);
-    },
-    transform: (module) => {
-      // Use context injection hook
-      const transformed = contextInjectionHook(transformAction(module), { context, actions });
-      // Inject context and actions into each method
-      transformed.methods = R.map(
-        (method) => (args) => method({ ...args, context, actions }),
-        transformed.methods
-      );
-      return transformed;
-    }
-  });
+// TODO: Expand tests for more edge cases and performance
 
-  return async (ctx) => {
-    // Use error handling hook
-    return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(ctx);
+const actionLoader = async (context, modules) => {
+  // Defensive: always return an object for actions
+  const registry = extractActions(modules, context);
+  context.actions = registry;
+  return { context };
+};
 
-      return {
-        context: loaderContext,
-        cleanup
-      };
-    }, ctx);
-  };
-}; 
+export default actionLoader; 

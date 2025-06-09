@@ -1,9 +1,6 @@
 import R from 'ramda';
 import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook } from '../hooks/loggingHook';
-import { validationHook } from '../hooks/validationHook';
-import { errorHandlingHook } from '../hooks/errorHandlingHook';
-import { contextInjectionHook } from '../hooks/contextInjectionHook';
+import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 
 // File patterns for plugins
 const PLUGIN_PATTERNS = {
