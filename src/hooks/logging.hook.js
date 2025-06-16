@@ -1,5 +1,6 @@
 /**
- * Logging Hook
+ * This hook logs messages to the host app's logger if present.
+ * It does NOT use the internal guru-loaders-fp logger, to avoid context pollution.
  *
  * @function loggingHook
  * @description Logs a message using the context's logger. Intended for use in loader pipelines or modular steps to provide context-aware logging.

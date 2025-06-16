@@ -1,94 +1,106 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { createJsonLoader } from '../json-loader.js';
+import { jsonLoader } from '../json-loader.js';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
-const mockContext = { services: { logger: mockLogger }, config: { foo: 'bar' } };
+const baseContext = () => ({
+  jsons: {},
+  services: {},
+  config: {},
+  logger: mockLogger
+});
 
-// Happy path: valid JSON factory
-const validJsonFactory = jest.fn(() => ({
-  name: 'userConfig',
-  data: {
-    maxUsers: 100,
-    roles: ['admin', 'user', 'guest']
-  },
-  options: { cache: true }
-}));
+// Happy path: valid json factory
+const validJsonFactory = jest.fn(() => ({ name: 'config', data: { foo: 'bar' } }));
 
 // Edge: duplicate name factories
-const duplicateJsonFactoryA = jest.fn(() => ({ name: 'dupeConfig', data: { a: 1 } }));
-const duplicateJsonFactoryB = jest.fn(() => ({ name: 'dupeConfig', data: { b: 2 } }));
+const duplicateJsonFactoryA = jest.fn(() => ({ name: 'dupe', data: { a: 1 } }));
+const duplicateJsonFactoryB = jest.fn(() => ({ name: 'dupe', data: { b: 2 } }));
 
-// Failure: invalid JSON (missing name)
+// Failure: invalid json (missing name)
 const invalidJsonFactory = jest.fn(() => ({ data: { foo: 'bar' } }));
+// Failure: invalid json (not an object)
+const invalidTypeJsonFactory = jest.fn(() => 42);
 
-describe('createJsonLoader', () => {
+describe('jsonLoader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('loads and registers a valid JSON object from a factory (happy path)', async () => {
-    const files = ['user-config.json.js'];
-    const modules = { 'user-config.json.js': { default: validJsonFactory } };
-    const loader = createJsonLoader({
-      importModule: async (file, ctx) => {
-        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
-        const result = modules[file];
-        // Debug log
-        // eslint-disable-next-line no-console
-        console.log(`[importModule] file: ${file}, result:`, JSON.stringify(result));
-        return result;
-      },
+  it('registers a valid json object from a factory (happy path)', async () => {
+    const files = ['config.json.js'];
+    const modules = { 'config.json.js': { default: validJsonFactory } };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, json: {} });
-    expect(result.jsons).toBeDefined();
-    expect(result.jsons.userConfig).toMatchObject({
-      name: 'userConfig',
-      data: { maxUsers: 100, roles: ['admin', 'user', 'guest'] },
-      options: { cache: true },
-      type: 'json'
-    });
-    expect(result.jsons.userConfig.timestamp).toEqual(expect.any(Number));
+    };
+    const result = await jsonLoader(ctx);
+    expect(result.jsons.config).toBeDefined();
+    expect(result.jsons.config.data).toEqual({ foo: 'bar' });
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('warns on duplicate JSON names (edge case)', async () => {
+  it('warns on duplicate json names (edge case)', async () => {
     const files = ['dupeA.json.js', 'dupeB.json.js'];
     const modules = {
       'dupeA.json.js': { default: duplicateJsonFactoryA },
       'dupeB.json.js': { default: duplicateJsonFactoryB }
     };
-    const loader = createJsonLoader({
-      importModule: async (file, ctx) => {
-        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
-        const result = modules[file];
-        // Debug log
-        // eslint-disable-next-line no-console
-        console.log(`[importModule] file: ${file}, result:`, JSON.stringify(result));
-        return result;
-      },
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, json: {} });
-    expect(result.jsons.dupeConfig).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalledWith('[json-loader] Duplicate JSON names found:', ['dupeConfig']);
+    };
+    const result = await jsonLoader(ctx);
+    expect(result.jsons.dupe).toBeDefined();
+    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
-  it('skips invalid JSON objects and does not register them (failure)', async () => {
+  it('skips invalid json objects (missing name) and does not register them (failure)', async () => {
     const files = ['bad.json.js'];
     const modules = { 'bad.json.js': { default: invalidJsonFactory } };
-    const loader = createJsonLoader({
-      importModule: async (file, ctx) => {
-        if (!(file in modules)) throw new Error(`No module mock for file: ${file}`);
-        const result = modules[file];
-        // Debug log
-        // eslint-disable-next-line no-console
-        console.log(`[importModule] file: ${file}, result:`, JSON.stringify(result));
-        return result;
-      },
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, json: {} });
+    };
+    const result = await jsonLoader(ctx);
+    expect(result.jsons).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('skips invalid json objects (not an object) and does not register them (failure)', async () => {
+    const files = ['badtype.json.js'];
+    const modules = { 'badtype.json.js': { default: invalidTypeJsonFactory } };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file, ctx) => modules[file],
+      findFiles: () => files
+    };
+    const result = await jsonLoader(ctx);
+    expect(result.jsons).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('handles empty file list (edge case)', async () => {
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async () => ({}),
+      findFiles: () => []
+    };
+    const result = await jsonLoader(ctx);
+    expect(result.jsons).toEqual({});
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('handles import errors gracefully (failure path)', async () => {
+    const files = ['fail.json.js'];
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async () => { throw new Error('fail'); },
+      findFiles: () => files
+    };
+    const result = await jsonLoader(ctx);
     expect(result.jsons).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
   });

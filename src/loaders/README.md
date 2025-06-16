@@ -1,19 +1,24 @@
-# Loader System
+# Guru Loaders: Unified Documentation
+
+> **Note:** This document unifies and supersedes the previous `DICTIONARY.md`, `README.md`, and `USAGE.md`. All loader standards, usage, and architecture are now documented here.
+
+---
+
+## 1. Overview
 
 The Loader system is the backbone of the `guru-loaders-fp` framework, enabling modular, context-driven, and highly composable application assembly. Each loader is responsible for discovering, validating, transforming, and registering a specific type of module (e.g., models, actions, resolvers).
 
----
-
-## 🧩 Loader Architecture
-
-- **Each loader is a factory**: It returns an async function that takes a context and returns an enriched context.
-- **Pattern-based discovery**: Loaders use glob patterns to find relevant files (e.g., `**/models/**/*.model.js`).
-- **Validation & transformation**: Each loader validates and transforms modules before registration.
-- **Composable pipelines**: Loaders are composed into pipelines, allowing for flexible and extensible application bootstrapping.
+**Key goals:**
+- Modularity
+- Composability
+- Context-driven enrichment
+- Reliability & testability
 
 ---
 
-## 🏗️ Loader Creation Pattern
+## 2. Architecture & Design
+
+### Loader Creation Pattern
 
 All loaders follow a common pattern using the `createLoader` utility:
 
@@ -33,9 +38,20 @@ export const createMyLoader = (options = {}) =>
 - **validate**: Function to check module shape
 - **transform**: Function to normalize/augment module
 
+### Loader Pipeline
+
+All loaders are composed into a pipeline that builds up the application context. The pipeline is orchestrated using the `pipeAsync` utility, ensuring each loader receives the latest context and can augment it.
+
+### Extending Loaders
+
+To add a new loader:
+1. Create a new file in `src/loaders/` (e.g., `my-loader.js`)
+2. Use the `createLoader` pattern with your own validation and transformation logic.
+3. Add your loader to the loader pipeline or context as needed.
+
 ---
 
-## 🚦 Built-in Loaders
+## 3. Loader Types Reference
 
 | Loader      | Purpose                                 | File Pattern Example                |
 |-------------|-----------------------------------------|-------------------------------------|
@@ -60,125 +76,80 @@ See `src/loaders/index.js` for the full list and their factory functions.
 
 ---
 
-## 🛠️ Example: Model Loader
+## 4. Usage Guide
 
-```js
-// src/loaders/model-loader.js
-export const createModelLoader = (options = {}) => {
-  const loader = createLoader('model', {
-    ...options,
-    patterns: '**/models/**/*.model.js',
-    validate: (mod) => mod.name && mod.schema && mod.model,
-    transform: (mod) => ({
-      ...mod,
-      type: 'model',
-      timestamp: Date.now()
-    })
-  });
-  return loader;
-};
+### Installation
+
+To get started with the loaders, ensure that all necessary dependencies are installed:
+
+```bash
+npm install
 ```
 
----
+Ensure your environment is set up correctly by configuring the necessary environment variables and config files as described in the `env` loader section.
 
-## 🧪 Example: Data Loader
+### Basic Usage
 
+#### Loading Environment Configurations
 ```js
-// src/loaders/data-loader.js
-export const createDataLoader = (options = {}) => {
-  const loader = createLoader('data', {
-    ...options,
-    patterns: '**/data/**/*.loader.js',
-    validate: (mod) => mod.name && mod.model && typeof mod.batchFn === 'function',
-    transform: (mod) => ({
-      ...mod,
-      type: 'data',
-      create: (context) => new DataLoader(
-        async (keys) => { /* batching logic */ },
-        { cache: true }
-      )
-    })
-  });
-  return loader;
-};
+import { createEnvLoader } from './env-loader';
+const envLoader = createEnvLoader();
+await envLoader(context);
 ```
 
-## 🌱 Example: Env Loader
-
+#### Setting Up Database Connections
 ```js
-// src/loaders/env-loader.js
-export const createEnvLoader = (options = {}) => {
-  const loader = createLoader('env', {
-    ...options,
-    patterns: '**/configs/**/*.environment.js',
-    validate: (mod) => mod.name && typeof mod === 'object',
-    transform: (mod) => ({ ...mod, type: 'env', timestamp: Date.now() })
-  });
-  return loader;
-};
+import { createDbLoader } from './db-loader';
+const dbLoader = createDbLoader();
+await dbLoader(context);
 ```
 
-### .environment.js File Example
-
+#### Registering Models
 ```js
-// modules/user/configs/user.environment.js
-export default (context) => ({
-  name: 'user',
-  NODE_ENV: process.env.NODE_ENV,
-  API_URL: process.env.API_URL || 'http://localhost:3000',
-  FEATURE_FLAG: context?.featureFlag || false,
-});
+import { createModelLoader } from './model-loader';
+const modelLoader = createModelLoader();
+await modelLoader(context);
 ```
 
-### Context Key and Access
+### Advanced Usage
 
-- All loaded environments are registered at `context.envs[<name>]`.
-- Example access:
-  ```js
-  const userEnv = context.envs.user;
-  const apiUrl = context.envs.user.API_URL;
-  ```
+- Customizing loader behavior (validation, transformation)
+- Integrating with other modules (middleware, plugins)
+- Configuration via environment variables, config files, or runtime parameters
 
-- Supports both factory and plain object exports.
-- Warns on duplicate names or invalid modules.
+### Troubleshooting
 
----
-
-## 🧬 Extending Loaders
-
-To add a new loader:
-
-1. Create a new file in `src/loaders/` (e.g., `my-loader.js`)
-2. Use the `createLoader` pattern with your own validation and transformation logic.
-3. Add your loader to the loader pipeline or context as needed.
+- **Missing Environment Variables:** Ensure all required environment variables are set before running the loaders.
+- **Database Connection Errors:** Check the database URI and credentials in the `db` loader configuration.
+- **Debugging Tips:** Use console logs or a debugger to trace the execution flow and identify issues within the loaders.
 
 ---
 
-## 🧱 Loader Pipeline
+## 5. Testing & Reliability
 
-All loaders are composed into a pipeline that builds up the application context. The pipeline is orchestrated using the `pipeAsync` utility, ensuring each loader receives the latest context and can augment it.
-
----
-
-## 🧪 Testing Loaders
-
-- Each loader should have unit tests in `src/loaders/__tests__/`.
-- Test validation, transformation, and integration with the context.
-- Mock external dependencies (e.g., database, cache) for isolation.
+- **Defensive input validation:** All loaders must validate input and handle null, undefined, or invalid arguments gracefully.
+- **Error handling:** All loaders must catch and log errors, and never throw uncaught exceptions during normal operation.
+- **Test coverage:** Every loader and utility is covered by comprehensive tests for happy, edge, and failure paths, with 80%+ branch coverage required.
+- **Reliability:** Loaders are resilient to unexpected input and runtime errors, as demonstrated by the test suite.
+- **Where tests live:** Each loader and utility should have unit tests in `src/loaders/__tests__/` or `src/utils/__tests__/` as appropriate.
+- **Mocking and isolation:** Mock external dependencies (e.g., database, cache) for isolation.
 
 ---
 
-## 📚 References
-
-- See `src/loaders/index.js` for loader aggregation and exports.
-- See individual loader files for implementation details and extension patterns.
-- See `src/core/pipeline/create-pipeline.js` for pipeline orchestration.
-
----
-
-## ✅ Best Practices
+## 6. Best Practices & Rules
 
 - Keep loader files focused and under 100 lines if possible.
 - Use pure functions for validation and transformation.
 - Always validate module shape before registration.
-- Document any non-obvious logic with comments and `# Reason:` tags. 
+- Document any non-obvious logic with comments and `# Reason:` tags.
+- See `GLOBAL_RULES.md` for project-wide rules and standards.
+
+---
+
+## 7. References & Further Reading
+
+- [Main Project README](../README.md): Overview of the project and its components.
+- [GLOBAL_RULES.md](../GLOBAL_RULES.md): Project-wide rules and standards.
+- [src/loaders/index.js]: Loader aggregation and exports.
+- [src/core/pipeline/create-pipeline.js]: Pipeline orchestration.
+- For more details, see the loader's source file or the main `README.md` in this directory. 

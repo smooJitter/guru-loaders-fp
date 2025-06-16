@@ -1,6 +1,31 @@
 import { SchemaComposer } from 'graphql-compose';
 import mongoose from 'mongoose';
-import typeComposerLoader from '../typeComposer-loader.js';
+import { typeComposerLoader } from '../typeComposer-loader.js';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { createTypeLoader } from '../type-loader.js';
+
+const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+const baseContext = () => ({
+  typeComposers: {},
+  services: {},
+  config: {},
+  logger: mockLogger
+});
+
+// Happy path: valid typeComposer factory
+const validTypeComposerFactory = jest.fn(() => ({
+  name: 'UserTC',
+  typeComposer: { getType: jest.fn() }
+}));
+
+// Edge: duplicate name factories
+const duplicateTypeComposerFactoryA = jest.fn(() => ({ name: 'dupe', typeComposer: { a: 1 } }));
+const duplicateTypeComposerFactoryB = jest.fn(() => ({ name: 'dupe', typeComposer: { b: 2 } }));
+
+// Failure: invalid typeComposer (missing name)
+const invalidTypeComposerFactory = jest.fn(() => ({ typeComposer: { foo: 'bar' } }));
+// Failure: invalid typeComposer (not an object)
+const invalidTypeTypeComposerFactory = jest.fn(() => 42);
 
 describe('typeComposerLoader', () => {
   afterEach(() => {
@@ -118,5 +143,71 @@ describe('typeComposerLoader', () => {
     const { context: result } = await typeComposerLoader({ models, context });
     expect(result.foo).toBe('bar');
     expect(Object.keys(result)).toEqual(expect.arrayContaining(['foo', 'typeComposers', 'schemaComposer']));
+  });
+
+  beforeEach(() => {
+    const schemaComposer = new SchemaComposer();
+    schemaComposer.clear();
+    jest.clearAllMocks();
+  });
+
+  it('registers a valid typeComposer object from a factory (happy path)', async () => {
+    const userSchema = new mongoose.Schema({ name: String, email: String });
+    const User = mongoose.model('User', userSchema);
+    const models = { User };
+    const ctx = baseContext();
+    const result = await typeComposerLoader({ models, context: ctx });
+    expect(result.typeComposers.User).toBeDefined();
+    expect(typeof result.typeComposers.User.getType).toBe('function');
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('warns on duplicate typeComposer names (edge case)', async () => {
+    const userSchema = new mongoose.Schema({ name: String });
+    const User = mongoose.model('User', userSchema);
+    const AnotherUser = mongoose.model('AnotherUser', userSchema);
+    const models = { User, AnotherUser };
+    const ctx = baseContext();
+    await typeComposerLoader({ models, context: ctx, logger: mockLogger });
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('duplicate typeComposer name'));
+  });
+
+  it('skips invalid typeComposer objects (missing name) and does not register them (failure)', async () => {
+    const invalidSchema = new mongoose.Schema({});
+    const InvalidUser = mongoose.model('InvalidUser', invalidSchema);
+    const models = { InvalidUser };
+    const ctx = baseContext();
+    await typeComposerLoader({ models, context: ctx, logger: mockLogger });
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('invalid typeComposer object'));
+  });
+
+  it('skips invalid typeComposer objects (not an object) and does not register them (failure)', async () => {
+    const userSchema = new mongoose.Schema({ name: String });
+    const User = mongoose.model('BadUser', userSchema);
+    const models = { User };
+    const ctx = baseContext();
+    const result = await typeComposerLoader({ models, context: ctx });
+    expect(result.typeComposers).toBeDefined();
+    expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('handles empty file list (edge case)', async () => {
+    const userSchema = new mongoose.Schema({ name: String });
+    const User = mongoose.model('EmptyUser', userSchema);
+    const models = { User };
+    const ctx = baseContext();
+    const result = await typeComposerLoader({ models, context: ctx });
+    expect(result.typeComposers).toBeDefined();
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('handles import errors gracefully (failure path)', async () => {
+    const userSchema = new mongoose.Schema({ name: String });
+    const User = mongoose.model('ErrorUser', userSchema);
+    const models = { User };
+    const ctx = baseContext();
+    const result = await typeComposerLoader({ models, context: ctx });
+    expect(result.typeComposers).toBeDefined();
+    expect(mockLogger.warn).toHaveBeenCalled();
   });
 }); 

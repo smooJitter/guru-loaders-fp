@@ -1,104 +1,87 @@
 // src/loaders/featureLoader.js
 
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import { findFiles as realFindFiles } from '../../utils/file-utils.js';
-import logger from '../../utils/logger.js';
+import { createLoader } from '../../utils/loader-utils.js';
+import { findFeatureFiles, aggregateFeatureArtifacts } from './discovery.js';
 import { discoverFeatureArtifacts } from './discover-feature-artifacts.js';
 import { validateFeatureContext, injectFeatureContext, runFeatureLifecycle } from './context.js';
-import { findFeatureFiles, aggregateFeatureArtifacts } from './discovery.js';
 import { mergeFeatureRegistries, reportDuplicates } from './merge.js';
-import { setupFeatureHotReload } from './hot-reload.js';
+import { getLoaderLogger } from '../../utils/loader-logger.js';
 
-let reloadCallback = null;
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const FEATURE_PATTERNS = ['src/features/*/index.js'];
 
-export function onFeaturesReload(cb) {
-  reloadCallback = cb;
-}
+/**
+ * Custom findFiles using discovery.js
+ */
+const customFindFiles = async (patterns, { logger }) => {
+  return await findFeatureFiles(patterns, (pattern, opts) => {
+    // You can inject your preferred file finder here if needed
+    // For now, just use the default findFiles logic from discovery.js
+    return findFeatureFiles([pattern], opts.logger);
+  }, logger);
+};
 
-export default async function featureLoader({
-  logger: customLogger = logger,
-  context = {},
-  patterns,
-  watch = process.env.NODE_ENV === 'development',
-  onReload,
-  importModule = (file) => import(pathToFileURL(file).href),
-  findFiles = realFindFiles,
-  discoverFeatureArtifacts: injectedDiscoverFeatureArtifacts
-} = {}) {
-  // 1. Validate and inject context
-  let loaderContext = { ...context, logger: customLogger };
-  try {
-    await runFeatureLifecycle('beforeAll', loaderContext);
-    validateFeatureContext(loaderContext);
-    loaderContext = injectFeatureContext(loaderContext);
-  } catch (err) {
-    customLogger.error('featureLoader: context setup failed:', err);
-    await runFeatureLifecycle('onError', { error: err, ...loaderContext });
-    throw err;
-  }
-
-  // 2. Find feature files
-  const defaultPatterns = ['src/features/*/index.js'];
-  const usePatterns = patterns || defaultPatterns;
-  let files = [];
-  try {
-    files = await findFeatureFiles(usePatterns, findFiles, customLogger);
-  } catch (err) {
-    customLogger.error('featureLoader: Error during file discovery:', err);
-    await runFeatureLifecycle('onError', { error: err, ...loaderContext });
-    throw err;
-  }
-
-  // 3. Aggregate artifacts
-  const discoverArtifacts = injectedDiscoverFeatureArtifacts || discoverFeatureArtifacts;
-  let featureManifests = [], errors = [];
-  try {
-    const result = await aggregateFeatureArtifacts(files, discoverArtifacts, loaderContext, customLogger);
-    featureManifests = result.featureManifests;
-    errors = result.errors;
-  } catch (err) {
-    customLogger.error('featureLoader: Error during artifact aggregation:', err);
-    await runFeatureLifecycle('onError', { error: err, ...loaderContext });
-    throw err;
-  }
-
-  // If any errors were collected, log and throw
+/**
+ * Transform: Aggregate all artifacts for all features using discovery.js
+ * @param {string[]} files - Feature entrypoint files
+ * @param {object} ctx - The loader context
+ * @returns {Promise<object[]>} Array of feature manifests
+ */
+export const extractFeatureArtifacts = async (files, ctx) => {
+  const logger = getLoaderLogger(ctx, {}, 'feature-loader');
+  const { featureManifests, errors } = await aggregateFeatureArtifacts(
+    Array.isArray(files) ? files : [files],
+    discoverFeatureArtifacts,
+    ctx,
+    logger
+  );
   if (errors && errors.length > 0) {
-    customLogger.error('featureLoader: Errors during artifact aggregation:', errors);
-    await runFeatureLifecycle('onError', { error: errors, ...loaderContext });
-    // Extract error messages for better debugging
-    const errorMessages = errors.map(e => {
-      if (e && e.error && e.error.message) return e.error.message;
-      if (e && e.error && typeof e.error === 'string') return e.error;
-      return JSON.stringify(e.error || e);
-    }).join('; ');
-    throw new Error('featureLoader: Errors during artifact aggregation: ' + errorMessages);
+    logger.error('featureLoader: Errors during artifact aggregation:', errors);
+    throw new Error('featureLoader: Errors during artifact aggregation');
   }
+  return featureManifests;
+};
 
-  // 4. Merge registries and report duplicates
-  const { typeComposersList, queriesList, mutationsList, resolversList } = mergeFeatureRegistries(loaderContext, featureManifests);
-  reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, customLogger);
+/**
+ * Validate: Ensure required artifacts are present
+ * @param {string} type - The loader type ("features")
+ * @param {object} module - The imported module
+ * @returns {boolean} True if valid, false otherwise
+ */
+export const validateFeatureModule = (type, module) => {
+  return (
+    module &&
+    (module.queries || module.mutations || module.typeComposers || module.resolvers)
+  );
+};
 
-  // 5. Hot reload support
-  if (watch) {
-    setupFeatureHotReload(
-      usePatterns,
-      projectRoot,
-      onReload,
-      reloadCallback,
-      { featureLoader, logger: customLogger, context, patterns: usePatterns, watch, onReload, importModule, findFiles, discoverFeatureArtifacts: discoverArtifacts },
-      customLogger
-    );
-  }
+/**
+ * Create the feature loader using createLoader and discovery.js utilities
+ * @param {object} options - Loader options
+ * @returns {function} Loader function
+ */
+export const createFeatureLoader = (options = {}) =>
+  createLoader('features', {
+    patterns: options.patterns || FEATURE_PATTERNS,
+    findFiles: options.findFiles || customFindFiles,
+    ...options,
+    transform: options.transform || extractFeatureArtifacts,
+    validate: options.validate || validateFeatureModule,
+    async onInit(context) {
+      validateFeatureContext(context);
+      injectFeatureContext(context);
+      await runFeatureLifecycle('beforeAll', context);
 
-  // 6. Lifecycle: afterAll
-  try {
-    await runFeatureLifecycle('afterAll', loaderContext);
-  } catch (err) {
-    customLogger.error('featureLoader: afterAll hook error:', err);
-  }
+      // Merge all feature registries
+      const featureManifests = context.features || [];
+      const { typeComposersList, queriesList, mutationsList, resolversList } =
+        mergeFeatureRegistries(context, featureManifests);
 
-  return loaderContext;
-}
+      // Report duplicates
+      const logger = getLoaderLogger(context, options, 'feature-loader');
+      reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, logger);
+
+      await runFeatureLifecycle('afterAll', context);
+    }
+  });
+
+export default createFeatureLoader();

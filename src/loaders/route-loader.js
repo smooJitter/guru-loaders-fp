@@ -1,58 +1,64 @@
-import { createLoaderWithMiddleware } from '../utils/loader-utils.js';
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { createLoader } from '../utils/loader-utils.js';
 
-// File patterns for routes
-const ROUTE_PATTERNS = {
-  default: '**/*.route.js',
-  index: '**/routes/**/*.index.js'
-};
+const ROUTE_PATTERNS = [
+  '**/*.route.js',
+  '**/routes/**/*.index.js'
+];
 
-// Route validation schema for the validation hook
-const routeSchema = {
-  name: 'string',
-  routes: 'array',
-  options: ['object', 'undefined']
+/**
+ * Extract and transform route module(s)
+ * @param {object} module - The imported module
+ * @param {object} ctx - The loader context
+ * @returns {object[]} Array of route objects
+ */
+export const extractRoute = (module, ctx) => {
+  if (!module || typeof module !== 'object') return [];
+  let routeObjs;
+  const mod = module.default || module;
+  routeObjs = typeof mod === 'function' ? mod(ctx) : mod;
+  const routeList = Array.isArray(routeObjs) ? routeObjs : [routeObjs];
+  return routeList
+    .filter(Boolean)
+    .map(obj => ({
+      ...obj,
+      type: 'route',
+      timestamp: Date.now()
+    }));
 };
 
 /**
- * Create the route loader with hooks for validation, context injection, logging, and error handling.
- * Supports modules that export a factory function or a plain object/array, and a single or multiple route objects.
- * @param {object} options Loader options
- * @returns {function} Loader function
+ * Validate a route module
+ * @param {string} type - The loader type ("routes")
+ * @param {object} module - The imported module
+ * @returns {boolean} True if valid, false otherwise
  */
-export const createRouteLoader = (options = {}) => {
-  const logMiddleware = (context) => loggingHook(context, 'Loading route modules');
+export const validateRouteModule = (type, module) => {
+  const mod = module.default || module;
+  const routeObjs = typeof mod === 'function' ? mod({}) : mod;
+  const routeList = Array.isArray(routeObjs) ? routeObjs : [routeObjs];
+  return routeList.every(obj =>
+    obj &&
+    typeof obj.name === 'string' &&
+    Array.isArray(obj.routes)
+  );
+};
 
-  const loader = createLoaderWithMiddleware('route', [logMiddleware], {
+export const createRouteLoader = (options = {}) =>
+  createLoader('routes', {
+    patterns: options.patterns || ROUTE_PATTERNS,
     ...options,
-    patterns: ROUTE_PATTERNS,
-    validate: (module, context) => {
-      const routeObjs = typeof module.default === 'function'
-        ? module.default(context)
-        : module.default;
+    transform: (module, ctx) => {
+      const mod = module.default || module;
+      const routeObjs = typeof mod === 'function' ? mod(ctx) : mod;
       const routeList = Array.isArray(routeObjs) ? routeObjs : [routeObjs];
-      return routeList.every(routeObj => validationHook(routeObj, routeSchema));
+      return routeList
+        .filter(Boolean)
+        .reduce((acc, obj) => {
+          if (obj && obj.name) acc[obj.name] = { ...obj, type: 'route', timestamp: Date.now() };
+          return acc;
+        }, {});
     },
-    transform: (module, context) => {
-      const routeObjs = typeof module.default === 'function'
-        ? module.default(context)
-        : module.default;
-      const routeList = Array.isArray(routeObjs) ? routeObjs : [routeObjs];
-      return routeList.map(routeObj => {
-        const injected = contextInjectionHook(routeObj, { services: context?.services, config: context?.config });
-        return {
-          ...injected,
-          type: 'route',
-          timestamp: Date.now()
-        };
-      });
-    }
+    validate: validateRouteModule
   });
 
-  return async (context) => {
-    return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
-    }, context);
-  };
-}; 
+export default createRouteLoader(); 

@@ -1,7 +1,7 @@
 import { gql } from 'graphql-tag';
 import { mergeTypeDefs, mergeResolvers } from '@graphql-tools/merge';
 
-// Core context types
+// Core context types (for documentation)
 const contextTypes = gql`
   type LoaderContext {
     env: EnvironmentConfig
@@ -42,7 +42,7 @@ const contextTypes = gql`
   }
 `;
 
-// Loader-specific types
+// Loader-specific types (for documentation)
 const loaderTypes = gql`
   type Model {
     name: String!
@@ -133,57 +133,65 @@ const loaderTypes = gql`
   }
 `;
 
-// Query types for introspection
-const queryTypes = gql`
-  type Query {
-    loaderContext: LoaderContext!
-    environment: EnvironmentConfig!
-    database: DatabaseConfig!
-    models: [Model!]!
-    types: [TypeConfig!]!
-    actions: [Action!]!
-    methods: [Method!]!
-    graphqlSchema: JSONSchema!
-    middleware: [Middleware!]!
-    routes: [Route!]!
-  }
-`;
-
-// Resolvers
-const resolvers = {
-  Query: {
-    loaderContext: (_, __, context) => context,
-    environment: (_, __, context) => context.env,
-    database: (_, __, context) => context.db,
-    models: (_, __, context) => context.models,
-    types: (_, __, context) => context.types,
-    actions: (_, __, context) => context.actions,
-    methods: (_, __, context) => context.methods,
-    graphqlSchema: (_, __, context) => context.json,
-    middleware: (_, __, context) => context.middleware,
-    routes: (_, __, context) => context.routes,
-  }
+// Dynamically build Query fields for all context keys
+const buildDynamicQueryType = (context) => {
+  const fields = Object.keys(context).map(key => `${key}: JSON`);
+  return gql`
+    type Query {
+      ${fields.join('\n      ')}
+    }
+  `;
 };
 
-// Merge all type definitions
-const typeDefs = mergeTypeDefs([
-  contextTypes,
-  loaderTypes,
-  queryTypes
-]);
+// Dynamic resolvers for all context keys
+const buildDynamicResolvers = (context) => {
+  const resolvers = { Query: {} };
+  for (const key of Object.keys(context)) {
+    resolvers.Query[key] = (_, __, ctx) => {
+      try {
+        return ctx[key];
+      } catch (err) {
+        console.warn(`type-loader: Could not resolve context key '${key}':`, err);
+        return null;
+      }
+    };
+  }
+  return resolvers;
+};
 
+/**
+ * Adds dynamic GraphQL introspection for all context keys.
+ * Accepts extra typeDefs/resolvers via options for extensibility.
+ * @param {object} options - { extraTypeDefs, extraResolvers }
+ * @returns {function} Loader function
+ */
 export const createTypeLoader = (options = {}) => {
   return async (context) => {
     try {
-      // Add type definitions and resolvers to context
-      context.typeDefs = typeDefs;
-      context.resolvers = resolvers;
+      // Build dynamic Query type and resolvers
+      const dynamicQueryType = buildDynamicQueryType(context);
+      const dynamicResolvers = buildDynamicResolvers(context);
+
+      // Merge all type definitions
+      context.typeDefs = mergeTypeDefs([
+        contextTypes,
+        loaderTypes,
+        dynamicQueryType,
+        ...(options.extraTypeDefs || [])
+      ]);
+      // Merge all resolvers
+      context.resolvers = mergeResolvers([
+        dynamicResolvers,
+        ...(options.extraResolvers || [])
+      ]);
 
       // Return the enhanced context
       return context;
     } catch (error) {
-      context.logger.error('Error in type loader:', error);
+      console.error('Error in type loader:', error);
       throw error;
     }
   };
-}; 
+};
+
+// For further extension, see README in this directory. 

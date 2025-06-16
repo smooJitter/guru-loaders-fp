@@ -63,10 +63,12 @@ export const createLoader = R.curry((type, options = {}) => {
     updateContext: async (context) => {
       const { modules } = context;
       
+      // Flatten arrays of modules (for multi-resolver support)
+      const flatModules = modules.flatMap(m => Array.isArray(m) ? m : [m]);
       // Create registry
-      const registry = modules.reduce((acc, { name, ...rest }) => ({
+      const registry = flatModules.reduce((acc, mod) => ({
         ...acc,
-        [name]: rest
+        [mod.name]: mod
       }), {});
 
       // Setup hot reload if needed

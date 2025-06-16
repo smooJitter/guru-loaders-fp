@@ -1,82 +1,58 @@
-import R from 'ramda';
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { createLoader } from '../utils/loader-utils.js';
 
-// File patterns for pubsub
-const PUBSUB_PATTERNS = {
-  default: '**/*.pubsub.js',
-  index: '**/pubsub/**/*.index.js'
-};
+const PUBSUB_PATTERNS = [
+  '**/*.pubsub.js',
+  '**/pubsub/**/*.index.js'
+];
 
-// PubSub validation schema for the validation hook
-const pubsubSchema = {
-  name: 'string',
-  topics: ['object', 'undefined'], // Unique: topics registry for pubsub
-  handlers: ['object', 'undefined'], // Unique: handler functions for each topic/event
-  pubsub: ['object', 'undefined'], // Optional: direct PubSub engine instance (e.g., Apollo PubSub)
-  options: ['object', 'undefined']
+/**
+ * Extract and transform pubsub module(s)
+ * @param {object} module - The imported module
+ * @param {object} ctx - The loader context
+ * @returns {object[]} Array of pubsub objects
+ */
+export const extractPubsub = (module, ctx) => {
+  if (!module || typeof module !== 'object') return [];
+  let pubsubObjs;
+  if (typeof module.default === 'function') {
+    pubsubObjs = module.default({ services: ctx?.services, config: ctx?.config });
+  } else {
+    pubsubObjs = module.default;
+  }
+  const pubsubList = Array.isArray(pubsubObjs) ? pubsubObjs : [pubsubObjs];
+  return pubsubList
+    .filter(Boolean)
+    .map(obj => ({
+      ...obj,
+      type: 'pubsub',
+      timestamp: Date.now()
+    }));
 };
 
 /**
- * Create the pubsub loader with hooks for validation, context injection, logging, and error handling.
- * Supports modules that export a factory function or a plain object/array, and a single or multiple pubsub objects.
- * Aggregates all pubsub objects into a registry keyed by name and attaches to context.pubsubs.
- * Warns on duplicate names.
- * Unique features: topics registry, handler mapping, options for pubsub engine.
- * @param {object} options Loader options
- * @returns {function} Loader function
+ * Validate a pubsub module
+ * @param {string} type - The loader type ("pubsubs")
+ * @param {object} module - The imported module
+ * @returns {boolean} True if valid, false otherwise
  */
-export const createPubsubLoader = (options = {}) => {
-  const patterns = options.patterns || PUBSUB_PATTERNS;
-  const findFiles = options.findFiles;
-  const importModule = options.importModule;
+export const validatePubsubModule = (type, module) => {
+  const pubsubs = extractPubsub(module, {});
+  return pubsubs.every(obj => obj && typeof obj.name === 'string');
+};
 
-  return async (context) => {
-    return errorHandlingHook(async () => {
-      loggingHook(context, 'Loading pubsub modules');
-      const files = findFiles ? findFiles(patterns.default) : [];
-      const modules = importModule
-        ? await Promise.all(files.map(file => importModule(file, context)))
-        : [];
-      const logger =
-        context.logger ||
-        (context.services && context.services.logger) ||
-        options.logger ||
-        console;
-      // Aggregate all loaded pubsub objects into a registry keyed by name
-      let allPubsubs = {};
-      let allPubsubObjs = [];
-      for (let i = 0; i < modules.length; i++) {
-        let pubsubObjs;
-        try {
-          pubsubObjs = typeof modules[i].default === 'function'
-            ? modules[i].default({ services: context?.services, config: context?.config })
-            : modules[i].default;
-          const pubsubList = Array.isArray(pubsubObjs) ? pubsubObjs : [pubsubObjs];
-          for (const pubsubObj of pubsubList) {
-            validationHook(pubsubObj, pubsubSchema);
-            const injected = contextInjectionHook(pubsubObj, { services: context?.services, config: context?.config });
-            const finalObj = {
-              ...injected,
-              type: 'pubsub',
-              timestamp: Date.now()
-            };
-            if (finalObj.name) {
-              if (allPubsubs[finalObj.name]) {
-                logger.warn && logger.warn('[pubsub-loader] Duplicate pubsub names found:', [finalObj.name]);
-              }
-              allPubsubs[finalObj.name] = finalObj;
-              allPubsubObjs.push(finalObj);
-            } else {
-              throw new Error('Missing name property');
-            }
-          }
-        } catch (err) {
-          logger.warn && logger.warn(`[pubsub-loader] Invalid or missing pubsub in file: ${files[i]}: ${err.message}`);
-        }
-      }
-      context.pubsubs = allPubsubs;
-      return { context };
-    }, context);
-  };
-}; 
+export const createPubsubLoader = (options = {}) =>
+  createLoader('pubsubs', {
+    patterns: options.patterns || PUBSUB_PATTERNS,
+    ...options,
+    transform: (module, ctx) => {
+      // Flatten array of pubsubs into a registry keyed by name
+      const pubsubs = extractPubsub(module, ctx);
+      return pubsubs.reduce((acc, obj) => {
+        if (obj && obj.name) acc[obj.name] = obj;
+        return acc;
+      }, {});
+    },
+    validate: validatePubsubModule
+  });
+
+export default createPubsubLoader(); 

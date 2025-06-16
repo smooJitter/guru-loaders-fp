@@ -2,74 +2,115 @@
 
 ## Overview
 
-`action-loader-2` is an upgraded loader for actions that supports **namespaced** `context.actions`, advanced meta/options, and modern, DRY action definitions. It is designed for modular, testable, and maintainable codebases.
+`action-loader-2` is a loader for actions that supports **namespaced** `context.actions` and modern action definitions. It is designed for modular, testable, and maintainable codebases.
 
 ---
 
 ## Key Features
-- **Namespaced Registry:** Actions are grouped by namespace: `context.actions[namespace][name]`.
-- **Registry Array Pattern:** Actions are defined as an array of objects with `namespace`, `name`, and `method`.
-- **withNamespace Utility:** Simplifies authoring actions in a DRY, error-free way.
-- **Factory Exports:** Supports exporting a function that receives context and returns actions.
-- **Meta/Options:** Each action can include `meta` and `options` for introspection, docs, or runtime behavior.
-- **Loader Hooks:** Composable with logging, validation, error handling, and context injection hooks.
-- **Duplicate Detection:** Warns (or throws) on duplicate actions in the same namespace.
+- **Namespaced Registry:** Actions are grouped by namespace: `context.actions[namespace][name]`
+- **Multiple Export Patterns:** Supports factory functions, arrays, and objects
+- **Context Injection:** Automatically injects context and actions registry
+- **Meta/Options Support:** Actions can include metadata and options
+- **Duplicate Detection:** Warns about duplicate actions in the same namespace
+- **Loader Hooks:** Supports logging, validation, error handling, and context injection
+
+---
+
+## Recommended File Patterns
+
+To keep your codebase clean and consistent, use these patterns for action file discovery:
+
+```js
+const actionLoader = createActionLoader2({
+  patterns: [
+    // 1. Direct action files (anywhere in src/)
+    'src/**/*.actions.js',           // e.g., src/actions/user.actions.js, src/modules/user/user.actions.js
+
+    // 2. Action directories (must use -actions suffix and have index.js)
+    'src/**/*-actions/index.js',     // e.g., src/actions/customer-actions/index.js, src/modules/user/user-actions/index.js
+  ],
+  // ... other options
+});
+```
+
+**Guidelines:**
+- Use `.actions.js` suffix for single-file action modules.
+- Use a `-actions` directory with an `index.js` for grouped or complex actions.
+- Avoid dots in folder names; use hyphens for action directories.
+- Do not place unrelated `index.js` files in `actions/` unless they are part of a `-actions` directory.
 
 ---
 
 ## Usage Patterns
 
-### 1. Using `withNamespace`
+### 1. Factory Export (Recommended)
 ```js
-import { withNamespace } from '../../utils/withNamespace.js';
-
-export default withNamespace('post', {
-  create: async ({ context, postData }) => { /* ... */ },
-  delete: async ({ context, postId }) => { /* ... */ }
-});
-```
-
-### 2. With Meta/Options
-```js
-export default withNamespace('post', {
-  create: {
-    method: async ({ context, postData }) => { /* ... */ },
-    meta: { audit: true }
+export default (context) => ({
+  user: {
+    create: {
+      method: async ({ context, userData }) => { /* ... */ },
+      meta: { audit: true }
+    },
+    // ... more actions
   }
 });
 ```
 
-### 3. Factory Export (for context at definition time)
-```js
-import { withNamespace } from '../../utils/withNamespace.js';
-
-export default (context) =>
-  withNamespace('post', {
-    create: async ({ postData }) => { /* ... use context ... */ }
-  });
-```
-
-### 4. Direct Registry Array (for cross-namespace or meta-heavy files)
+### 2. Array Export
 ```js
 export default [
-  { namespace: 'post', name: 'create', method: async (args) => { /* ... */ } },
-  { namespace: 'admin', name: 'impersonate', method: async (args) => { /* ... */ } }
+  {
+    namespace: 'user',
+    name: 'create',
+    method: async ({ context, userData }) => { /* ... */ },
+    meta: { audit: true }
+  },
+  // ... more actions
 ];
+```
+
+### 3. Object Export
+```js
+export default {
+  user: {
+    create: {
+      method: async ({ context, userData }) => { /* ... */ },
+      meta: { audit: true }
+    },
+    // ... more actions
+  }
+};
 ```
 
 ---
 
-## Loader Output
+## Action Structure
 
-The loader aggregates all actions into:
+Every action must have:
+```js
+{
+  namespace: 'user',    // Required: groups actions
+  name: 'create',       // Required: the action name
+  method: async ({ context, ...args }) => { /* ... */ },  // Required: the function
+  meta: {              // Optional: metadata
+    audit: true
+  },
+  options: {           // Optional: runtime options
+    // ...
+  }
+}
+```
+
+---
+
+## Context Structure
+
+The loader creates a namespaced structure in the context:
 ```js
 context.actions = {
-  post: {
-    create: async (args) => { /* ... */ },
-    delete: async (args) => { /* ... */ }
-  },
-  admin: {
-    impersonate: async (args) => { /* ... */ }
+  user: {
+    create: (args) => method({ ...args, context, actions: registry }),
+    // ...
   }
 };
 ```
@@ -78,110 +119,46 @@ context.actions = {
 
 ## Testing
 
-### 1. Unit Testing a Namespaced Action
+### 1. Unit Testing an Action
 ```js
-// src/modules/post/__tests__/post-actions.test.js
-import actions from '../post.actions.js';
-
-describe('post actions', () => {
-  it('create should create a post and track analytics', async () => {
-    const mockContext = { services: { db: { Post: { create: jest.fn() } }, analytics: { trackEvent: jest.fn() } } };
-    const [createAction] = actions.filter(a => a.name === 'create');
-    const postData = { title: 'Test', tags: ['a'] };
-    await createAction.method({ context: mockContext, postData });
-    expect(mockContext.services.db.Post.create).toHaveBeenCalledWith(postData);
-    expect(mockContext.services.analytics.trackEvent).toHaveBeenCalledWith('post:create', expect.any(Object));
-  });
-});
-```
-
-### 2. Integration Testing the Loader
-```js
-import actionLoader2 from '../../src/loaders/action-loader-2/index.js';
-
-describe('action-loader-2 integration', () => {
-  it('should load and namespace actions correctly', async () => {
-    const mockContext = { services: { logger: { warn: jest.fn() } } };
-    const modules = [
-      // Simulate a module using withNamespace
-      { default: [
-        { namespace: 'post', name: 'create', method: jest.fn() },
-        { namespace: 'post', name: 'delete', method: jest.fn() }
-      ] },
-      // Simulate a factory export
-      { default: () => [
-        { namespace: 'admin', name: 'impersonate', method: jest.fn() }
-      ] }
-    ];
-    const registry = actionLoader2.options.transform(modules, mockContext);
-    expect(registry.post.create).toBeInstanceOf(Function);
-    expect(registry.admin.impersonate).toBeInstanceOf(Function);
+describe('user actions', () => {
+  it('create should create a user', async () => {
+    const mockContext = { 
+      services: { 
+        db: { User: { create: jest.fn() } } 
+      } 
+    };
+    const result = await createUser({ 
+      context: mockContext, 
+      userData: { name: 'Test' } 
+    });
+    expect(mockContext.services.db.User.create)
+      .toHaveBeenCalledWith({ name: 'Test' });
   });
 });
 ```
 
 ---
 
-## Improved Usage Examples
+## Best Practices
 
-### Using withNamespace (Recommended)
-```js
-import { withNamespace } from '../../utils/withNamespace.js';
-
-export default withNamespace('post', {
-  create: async ({ context, postData }) => { /* ... */ },
-  delete: async ({ context, postId }) => { /* ... */ },
-  update: async ({ context, postId, updates }) => { /* ... */ },
-  list: async ({ page = 1, limit = 10 }) => { /* ... */ },
-  getStats: async ({ postId }) => { /* ... */ }
-});
-```
-
-### With Meta/Options
-```js
-export default withNamespace('post', {
-  create: {
-    method: async ({ context, postData }) => { /* ... */ },
-    meta: { audit: true }
-  },
-  delete: {
-    method: async ({ context, postId }) => { /* ... */ },
-    options: { requiresAdmin: true }
-  }
-});
-```
-
-### Factory Export (for context at definition time)
-```js
-import { withNamespace } from '../../utils/withNamespace.js';
-
-export default (context) =>
-  withNamespace('post', {
-    create: async ({ postData }) => { /* ... use context from closure ... */ },
-    delete: async ({ postId }) => { /* ... */ }
-  });
-```
-
-### Direct Registry Array (for cross-namespace or meta-heavy files)
-```js
-export default [
-  { namespace: 'post', name: 'create', method: async (args) => { /* ... */ } },
-  { namespace: 'admin', name: 'impersonate', method: async (args) => { /* ... */ } }
-];
-```
+1. **Use Factory Exports** for better context handling
+2. **Keep Actions Focused** - one clear responsibility
+3. **Use Metadata** for behavior control
+4. **Test Actions** in isolation
+5. **Handle Errors** consistently
+6. **Avoid Duplicate Actions** in the same namespace
 
 ---
 
 ## Migration Notes
-- Replace old flat action exports with registry array or withNamespace pattern.
-- Use factory exports if you need context at definition time.
-- Meta/options are now supported per action.
-- Loader is fully compatible with hooks and middleware.
-- Test actions as pure functions, or test the loader output for integration.
+- Replace old flat action exports with namespaced objects
+- Use factory exports if you need context at definition time
+- Add metadata for behavior control
+- Test actions as pure functions
 
 ---
 
 ## See Also
-- [withNamespace Utility](../utils/withNamespace.js)
 - [Loader Hooks](../hooks/)
 - [Testing Patterns](../__tests__/README.md) 

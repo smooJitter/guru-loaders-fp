@@ -1,4 +1,5 @@
 import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { getLoaderLogger } from '../utils/loader-logger.js';
 
 // File patterns for event modules
 const EVENT_PATTERNS = {
@@ -9,7 +10,7 @@ const EVENT_PATTERNS = {
 // Event validation schema
 const eventSchema = {
   name: 'string',
-  handler: 'function',
+  event: 'function',
   options: ['object', 'undefined']
 };
 
@@ -21,53 +22,51 @@ const extractEvents = (module, context) => {
   return Array.isArray(events) ? events : [events];
 };
 
-export const createEventLoader = (options = {}) => {
+// Pipeline-friendly event loader
+export const eventLoader = async (ctx) => {
+  const options = ctx.options || {};
   const patterns = options.patterns || EVENT_PATTERNS;
   const findFiles = options.findFiles;
   const importModule = options.importModule;
+  const logger = getLoaderLogger(ctx, options, 'event-loader');
 
-  return async (context) => {
-    return errorHandlingHook(async () => {
-      loggingHook(context, 'Loading event modules');
-      const files = findFiles ? findFiles(patterns.default) : [];
-      const modules = importModule
-        ? await Promise.all(files.map(file => importModule(file, context)))
-        : [];
-      const registry = {};
-      const logger =
-        context.logger ||
-        (context.services && context.services.logger) ||
-        options.logger ||
-        console;
-      let loadedNames = [];
-      for (let i = 0; i < modules.length; i++) {
-        try {
-          const events = extractEvents(modules[i], context);
-          for (const event of events) {
-            validationHook(event, eventSchema);
-            const injected = contextInjectionHook(event, { services: context?.services });
-            const finalObj = {
-              ...injected,
-              type: 'event',
-              timestamp: Date.now()
-            };
-            if (finalObj.name) {
-              if (registry[finalObj.name]) {
-                logger.warn && logger.warn('[event-loader] Duplicate event names found:', [finalObj.name]);
-              }
-              registry[finalObj.name] = finalObj;
-              loadedNames.push(finalObj.name);
-            } else {
-              throw new Error('Missing name property');
+  return errorHandlingHook(async () => {
+    loggingHook(ctx, 'Loading event modules');
+    let files = findFiles ? findFiles(patterns.default) : [];
+    let modules = [];
+    try {
+      modules = await Promise.all(files.map(file => importModule(file, ctx)));
+    } catch (err) {
+      logger.warn(`[event-loader] Error importing event files: ${err.message}`);
+      modules = [];
+    }
+    const registry = {};
+    for (let i = 0; i < modules.length; i++) {
+      try {
+        const events = extractEvents(modules[i], ctx);
+        for (const event of events) {
+          validationHook(event, eventSchema);
+          const injected = contextInjectionHook(event, { services: ctx?.services });
+          const finalObj = {
+            ...injected,
+            type: 'event',
+            timestamp: Date.now()
+          };
+          if (finalObj.name) {
+            if (registry[finalObj.name]) {
+              logger.warn('Duplicate event names found:', [finalObj.name]);
             }
+            registry[finalObj.name] = finalObj;
+          } else {
+            throw new Error('Missing name property');
           }
-        } catch (err) {
-          logger.warn && logger.warn(`[event-loader] Invalid or missing event in file: ${files[i]}: ${err.message}`);
         }
+      } catch (err) {
+        logger.warn(`Invalid or missing event in file: ${files[i]}: ${err.message}`);
       }
-      context.events = registry;
-      logger.info && logger.info(`[event-loader] Loaded events: ${Object.keys(registry).join(', ')}`);
-      return { context };
-    }, context);
-  };
+    }
+    logger.info && logger.info(`[event-loader] Loaded events: ${Object.keys(registry).join(', ')}`);
+    // Return a context-mergeable object
+    return { ...ctx, events: registry };
+  }, ctx);
 }; 

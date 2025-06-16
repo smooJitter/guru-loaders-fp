@@ -1,3 +1,107 @@
-# Project Overview
+# Guru-Loader-FP: Functional, Modular Loader System
 
-This file has been moved to the `docs` directory. Please refer to `docs/README.md` for the project overview and setup instructions. 
+Welcome to Guru-Loader-FP—a robust, context-driven loader framework for Node.js/GraphQL apps.
+This system enables modular, composable, and testable loading of models, actions, services, typeComposers, features, and more.
+
+---
+
+## 🚀 Quick Start
+
+**At server startup:**
+
+```js
+import { buildAppContext } from '../src';
+
+const { createContext, ...baseContext } = await buildAppContext({
+  logger: console,
+  config: { /* your config */ }
+});
+```
+
+**For each request:**
+
+```js
+const context = createContext({ req });
+// context now includes user, requestId, and all loaded registries
+```
+
+---
+
+## 🧩 Loader Pipelines
+
+Guru-Loader-FP supports multiple loader pipelines for different environments:
+
+### Full Pipeline (Production/Dev)
+
+```js
+import { runLoaderPipeline, fullPipeline } from '../src';
+
+let context = { logger: console, config: { /* ... */ } };
+context = await runLoaderPipeline(context, fullPipeline);
+```
+
+### Minimal Pipeline (Unit Tests)
+
+```js
+import { runLoaderPipeline, minimalPipeline } from '../src';
+
+let context = { logger: console };
+context = await runLoaderPipeline(context, minimalPipeline);
+```
+
+### Phased Pipeline (Advanced)
+
+```js
+import { runLoaderPhases, phasedPipeline } from '../src';
+
+let context = { logger: console, config: { /* ... */ } };
+context = await runLoaderPhases(context, phasedPipeline);
+```
+
+### Selective Loaders
+
+```js
+import { runSelectedLoaders, loaders } from '../src';
+
+let context = { logger: console };
+context = await runSelectedLoaders(context, loaders, ['env', 'model', 'action']);
+```
+
+---
+
+## 🏗️ How It Works
+
+- **Loader Registry:** Each loader adds its results to a shared context object (e.g., `context.models`, `context.actions`, `context.typeComposers`).
+- **Pipeline Order Matters:** Loaders are run in dependency order (e.g., models before typeComposers, actions before features).
+- **Per-Request Context:** Only lightweight user/session/request data is added per request.
+
+---
+
+## 📚 Extending & Customizing
+
+- Add your own loaders to the pipeline or registry.
+- Use `extraTypeDefs` and `extraResolvers` with the type-loader to extend the GraphQL introspection API.
+- Use plugins or phased pipelines for advanced bootstrapping.
+
+---
+
+## 📝 Best Practices
+
+- Keep loaders pure and context-driven.
+- Use factory functions for context injection in modules.
+- Test each loader type separately.
+- Document your custom pipelines and loader patterns.
+
+---
+
+## 📖 See Also
+
+- [type-loader.md](./type-loader.md): Exposing your loader context as a GraphQL API.
+- [action-loader-2.md](./action-loader-2.md): Modern action loader patterns.
+- [feature-loader.md](./feature-loader.md): Feature-based modular loading.
+- [docs/index.md](./index.md): Documentation index and coverage standards.
+
+---
+
+**Guru-Loader-FP** makes your app's architecture modular, testable, and ready for scale.
+For more patterns and advanced usage, see the docs directory! 

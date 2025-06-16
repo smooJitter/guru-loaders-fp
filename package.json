@@ -16,13 +16,16 @@
   },
   "dependencies": {
     "@graphql-tools/merge": "^9.0.0",
+    "bcrypt": "^6.0.0",
     "chokidar": "^3.5.3",
+    "date-fns": "^4.1.0",
     "fast-glob": "^3.3.2",
     "graphql": "^16.11.0",
     "graphql-compose": "^9.1.0",
     "graphql-compose-mongoose": "^10.0.0",
     "graphql-tag": "^2.12.6",
     "ramda": "^0.30.1",
+    "yup": "^1.6.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {

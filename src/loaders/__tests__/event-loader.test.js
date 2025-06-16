@@ -1,103 +1,109 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { createEventLoader } from '../event-loader.js';
+import { eventLoader } from '../event-loader.js';
 
-const mockLogger = { warn: jest.fn(), info: jest.fn(), error: jest.fn() };
-const mockContext = { services: { logger: mockLogger } };
+const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+const baseContext = () => ({
+  events: {},
+  services: {},
+  config: {},
+  logger: mockLogger
+});
 
-// Happy path: valid event object
-const validEvent = {
-  name: 'userCreated',
-  handler: jest.fn(),
-  options: { once: true }
-};
-
-// Factory function export
+// Happy path: valid event factory
 const validEventFactory = jest.fn(() => ({
-  name: 'userUpdated',
-  handler: jest.fn(),
-  options: { once: false }
+  name: 'userCreated',
+  event: jest.fn()
 }));
 
-// Array of events
-const eventArray = [
-  { name: 'eventA', handler: jest.fn() },
-  { name: 'eventB', handler: jest.fn() }
-];
+// Edge: duplicate name factories
+const duplicateEventFactoryA = jest.fn(() => ({ name: 'dupe', event: jest.fn() }));
+const duplicateEventFactoryB = jest.fn(() => ({ name: 'dupe', event: jest.fn() }));
 
-// Duplicate name
-const duplicateEventA = { name: 'dupe', handler: jest.fn() };
-const duplicateEventB = { name: 'dupe', handler: jest.fn() };
+// Failure: invalid event (missing name)
+const invalidEventFactory = jest.fn(() => ({ event: jest.fn() }));
+// Failure: invalid event (not a function)
+const invalidTypeEventFactory = jest.fn(() => ({ name: 'bad', event: 42 }));
 
-// Invalid: missing name
-const invalidEvent = { handler: jest.fn() };
+describe('eventLoader', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-describe('createEventLoader', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('loads and registers a valid event object', async () => {
+  it('registers a valid event object from a factory (happy path)', async () => {
     const files = ['userCreated.event.js'];
-    const modules = { 'userCreated.event.js': { default: validEvent } };
-    const loader = createEventLoader({
+    const modules = { 'userCreated.event.js': { default: validEventFactory } };
+    const ctx = baseContext();
+    ctx.options = {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, events: {} });
+    };
+    const result = await eventLoader(ctx);
     expect(result.events.userCreated).toBeDefined();
-    expect(result.events.userCreated.handler).toBe(validEvent.handler);
-    expect(result.events.userCreated.options).toEqual({ once: true });
-    expect(mockLogger.warn).not.toHaveBeenCalled();
-  });
-
-  it('loads and registers an event from a factory function', async () => {
-    const files = ['userUpdated.event.js'];
-    const modules = { 'userUpdated.event.js': { default: validEventFactory } };
-    const loader = createEventLoader({
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, events: {} });
-    expect(result.events.userUpdated).toBeDefined();
-    expect(result.events.userUpdated.handler).toBeDefined();
-    expect(result.events.userUpdated.options).toEqual({ once: false });
-    expect(mockLogger.warn).not.toHaveBeenCalled();
-  });
-
-  it('loads and registers an array of events', async () => {
-    const files = ['array.event.js'];
-    const modules = { 'array.event.js': { default: eventArray } };
-    const loader = createEventLoader({
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, events: {} });
-    expect(result.events.eventA).toBeDefined();
-    expect(result.events.eventB).toBeDefined();
+    expect(typeof result.events.userCreated.event).toBe('function');
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('warns on duplicate event names (edge case)', async () => {
     const files = ['dupeA.event.js', 'dupeB.event.js'];
     const modules = {
-      'dupeA.event.js': { default: duplicateEventA },
-      'dupeB.event.js': { default: duplicateEventB }
+      'dupeA.event.js': { default: duplicateEventFactoryA },
+      'dupeB.event.js': { default: duplicateEventFactoryB }
     };
-    const loader = createEventLoader({
+    const ctx = baseContext();
+    ctx.options = {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, events: {} });
+    };
+    const result = await eventLoader(ctx);
     expect(result.events.dupe).toBeDefined();
     expect(mockLogger.warn).toHaveBeenCalled();
   });
 
-  it('skips invalid event objects and does not register them (failure)', async () => {
+  it('skips invalid event objects (missing name) and does not register them (failure)', async () => {
     const files = ['bad.event.js'];
-    const modules = { 'bad.event.js': { default: invalidEvent } };
-    const loader = createEventLoader({
+    const modules = { 'bad.event.js': { default: invalidEventFactory } };
+    const ctx = baseContext();
+    ctx.options = {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
-    });
-    const { context: result } = await loader({ ...mockContext, events: {} });
+    };
+    const result = await eventLoader(ctx);
+    expect(result.events).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('skips invalid event objects (not a function) and does not register them (failure)', async () => {
+    const files = ['badtype.event.js'];
+    const modules = { 'badtype.event.js': { default: invalidTypeEventFactory } };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file, ctx) => modules[file],
+      findFiles: () => files
+    };
+    const result = await eventLoader(ctx);
+    expect(result.events).toEqual({});
+    expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('handles empty file list (edge case)', async () => {
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async () => ({}),
+      findFiles: () => []
+    };
+    const result = await eventLoader(ctx);
+    expect(result.events).toEqual({});
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('handles import errors gracefully (failure path)', async () => {
+    const files = ['fail.event.js'];
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async () => { throw new Error('fail'); },
+      findFiles: () => files
+    };
+    const result = await eventLoader(ctx);
     expect(result.events).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
   });

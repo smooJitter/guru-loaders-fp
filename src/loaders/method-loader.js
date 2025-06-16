@@ -2,86 +2,94 @@
 // For new code, prefer handler-loader.
 //
 
-import { createLoaderWithMiddleware, buildRegistry } from '../utils/loader-utils.js';
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
-import { getMethodsFromModule, validateMethodModule } from './lib/method-loader-utils.js';
+import { createLoader } from '../utils/loader-utils.js';
+import { assoc, reduce } from 'ramda';
+
+const METHOD_PATTERNS = [
+  '**/*.methods.js',
+  '**/methods/**/*.index.js'
+];
 
 /**
- * File patterns for methods
+ * Extract and transform method module(s) (supports legacy, namespaced, array, and factory)
+ * @param {object} module - The imported module
+ * @param {object} ctx - The loader context
+ * @returns {object} Flat or namespaced registry of methods
  */
-const METHOD_PATTERNS = {
-  default: '**/*.methods.js',
-  index: '**/methods/**/*.index.js'
-};
+export const extractMethod = (module, ctx) => {
+  if (!module || typeof module !== 'object') return {};
+  const mod = module.default || module;
 
-/**
- * Method validation schema (for meta/options, not enforced strictly)
- */
-const methodSchema = {
-  name: ['string', 'undefined'],
-  methods: ['object', 'undefined'],
-  meta: ['object', 'undefined'],
-  options: ['object', 'undefined']
-};
-
-/**
- * Transform a method function into the loader format, injecting context and methods.
- * @param {string} name - Method name
- * @param {function} fn - Method function
- * @param {object} context - Loader context
- * @param {object} methods - All methods
- * @returns {object}
- */
-const transformMethod = (name, fn, context, methods) => {
-  return {
-    name,
-    method: (args) => fn({ ...args, context, methods }),
-    type: 'methods',
-    timestamp: Date.now()
-  };
-};
-
-/**
- * Create the method loader with robust validation, error reporting, and context injection.
- * Logging is handled through the loggingHook middleware.
- * @param {object} context - Loader context
- * @param {object} methods - All methods
- * @param {object} options - Loader options
- * @returns {function} Loader function
- */
-const methodLoader = async (context, modules) => {
-  // Defensive: always return an object for methods
-  const logger = context?.services?.logger;
-  const registry = {};
-  if (!Array.isArray(modules) || modules.length === 0) {
-    context.methods = registry;
-    return { context };
-  }
-  for (const mod of modules) {
-    if (!mod || typeof mod !== 'object') {
-      logger?.debug?.('[method-loader] Skipping non-object module:', mod);
-      logger?.error?.('[method-loader] Invalid module (not an object):', mod);
-      continue;
-    }
-    if (typeof mod.name !== 'string' || typeof mod.methods !== 'object' || mod.methods === null) {
-      logger?.error?.('[method-loader] Invalid module shape (expected { name, methods }):', mod);
-      continue;
-    }
-    if (registry[mod.name]) {
-      logger?.warn?.(`[method-loader] Duplicate method name: ${mod.name}`);
-    }
-    // Only include function-valued methods
+  // Legacy: { name, methods }
+  if (typeof mod.name === 'string' && typeof mod.methods === 'object' && mod.methods !== null) {
     const validMethods = Object.entries(mod.methods).filter(([, fn]) => typeof fn === 'function');
-    if (validMethods.length === 0) {
-      logger?.error?.('[method-loader] No valid method functions found in module:', mod);
-    }
-    // Register as { method: fn } for legacy compatibility
-    registry[mod.name] = {
-      method: validMethods.length > 0 ? ((args) => validMethods[0][1]({ ...args, context, methods: registry })) : undefined
+    if (validMethods.length === 0) return {};
+    return {
+      [mod.name]: {
+        method: (args) => validMethods[0][1]({ ...args, context: ctx, methods: { [mod.name]: mod.methods } }),
+        type: 'methods',
+        timestamp: Date.now()
+      }
     };
   }
-  context.methods = registry;
-  return { context };
+
+  // Array of method objects: [{ name, method }]
+  if (Array.isArray(mod)) {
+    return reduce((acc, item) => {
+      if (item && typeof item.name === 'string' && typeof item.method === 'function') {
+        return assoc(item.name, {
+          method: (args) => item.method({ ...args, context: ctx, methods: acc }),
+          type: 'methods',
+          timestamp: Date.now()
+        }, acc);
+      }
+      return acc;
+    }, {}, mod);
+  }
+
+  // Namespaced: { user: { doThing: fn } }
+  if (typeof mod === 'object') {
+    return Object.entries(mod).reduce((acc, [ns, methods]) => {
+      if (typeof methods === 'object') {
+        Object.entries(methods).forEach(([name, fn]) => {
+          if (typeof fn === 'function') {
+            acc[`${ns}.${name}`] = {
+              method: (args) => fn({ ...args, context: ctx, methods: acc }),
+              type: 'methods',
+              timestamp: Date.now()
+            };
+          }
+        });
+      }
+      return acc;
+    }, {});
+  }
+
+  // Factory: function returning any of the above
+  if (typeof mod === 'function') {
+    return extractMethod(mod(ctx), ctx);
+  }
+
+  return {};
 };
 
-export default methodLoader; 
+/**
+ * Validate a method module (modern and legacy)
+ * @param {string} type - The loader type ("methods")
+ * @param {object} module - The imported module
+ * @returns {boolean} True if valid, false otherwise
+ */
+export const validateMethodModule = (type, module) => {
+  const registry = extractMethod(module, {});
+  return Object.keys(registry).length > 0;
+};
+
+export const createMethodLoader = (options = {}) =>
+  createLoader('methods', {
+    patterns: options.patterns || METHOD_PATTERNS,
+    ...options,
+    transform: extractMethod,
+    validate: validateMethodModule
+  });
+
+export default createMethodLoader(); 

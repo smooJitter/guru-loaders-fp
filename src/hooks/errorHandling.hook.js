@@ -1,5 +1,6 @@
 /**
- * Error Handling Hook
+ * This hook logs errors to the host app's logger if present.
+ * It does NOT use the internal guru-loaders-fp logger, to avoid context pollution.
  *
  * @function errorHandlingHook
  * @description Wraps an async function and logs errors using the context's logger. Intended for use in loader pipelines or modular steps.

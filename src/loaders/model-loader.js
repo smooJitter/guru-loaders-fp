@@ -1,16 +1,19 @@
-import * as R from 'ramda';
+import { createLoader } from '../utils/loader-utils.js';
 import mongoose from 'mongoose';
-import { loggingHook, errorHandlingHook, lifecycleHook } from '../hooks/index.js';
-import { findFiles as defaultFindFiles, importAndApply as defaultImportModule } from '../utils/file-utils.js';
 
-// File patterns for models
-const MODEL_PATTERNS = {
-  default: '**/*.model.js',
-  index: '**/models/**/*.index.js'
-};
+const MODEL_PATTERNS = [
+  '**/*.model.js',
+  '**/models/**/*.index.js'
+];
 
-// Extract a model from a module (either direct export or factory)
-const extractModel = (module, mongooseConnection) => {
+/**
+ * Extract a model from a module (either direct export or factory)
+ * @param {object} module - The imported module
+ * @param {object} ctx - The loader context
+ * @returns {object|undefined} The Mongoose model or undefined
+ */
+export const extractModel = (module, ctx) => {
+  const mongooseConnection = ctx?.mongooseConnection || mongoose;
   if (!module || typeof module !== 'object') return undefined;
   let model;
   if (typeof module.default === 'function') {
@@ -21,41 +24,23 @@ const extractModel = (module, mongooseConnection) => {
   return model && model.modelName ? model : undefined;
 };
 
-// Create model loader with Mongoose connection
-export const createModelLoader = (mongooseConnection, options = {}) => {
-  const patterns = options.patterns || MODEL_PATTERNS;
-  const findFiles = options.findFiles || defaultFindFiles;
-  const importModule = options.importModule || defaultImportModule;
+/**
+ * Validate a model module
+ * @param {string} type - The loader type ("models")
+ * @param {object} module - The imported module
+ * @returns {boolean} True if valid, false otherwise
+ */
+export const validateModelModule = (type, module) => {
+  const model = extractModel(module, {});
+  return !!(model && model.modelName && typeof model.modelName === 'string');
+};
 
-  return async (context) => {
-    return errorHandlingHook(async () => {
-      loggingHook(context, 'Loading models');
-      const files = findFiles(patterns.default);
-      const modules = await Promise.all(files.map(file => importModule(file, context)));
-      const registry = {};
-      // Prefer logger from context, then options, then console
-      const logger =
-        context.logger ||
-        (context.services && context.services.logger) ||
-        options.logger ||
-        console;
-      for (let i = 0; i < modules.length; i++) {
-        let model;
-        try {
-          model = extractModel(modules[i], mongooseConnection);
-        } catch (err) {
-          logger.warn && logger.warn(`[model-loader] Error extracting model from file: ${files[i]}: ${err.message}`);
-          continue;
-        }
-        if (model) {
-          registry[model.modelName] = model;
-        } else {
-          logger.warn && logger.warn(`[model-loader] Invalid or missing model in file: ${files[i]}`);
-        }
-      }
-      context.models = registry;
-      await lifecycleHook([() => console.log('Model loader initialized')], context);
-      return { context };
-    }, context);
-  };
-}; 
+export const createModelLoader = (options = {}) =>
+  createLoader('models', {
+    patterns: options.patterns || MODEL_PATTERNS,
+    ...options,
+    transform: extractModel,
+    validate: validateModelModule
+  });
+
+export default createModelLoader(); 

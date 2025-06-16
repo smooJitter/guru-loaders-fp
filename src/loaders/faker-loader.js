@@ -50,18 +50,34 @@ export const createFakerLoader = (options = {}) => {
           timestamp: Date.now()
         };
       });
+    },
+    updateContext: async (context) => {
+      const { modules } = context;
+      // Debug: log the shape of modules
+      if (typeof console !== 'undefined' && console.debug) {
+        console.debug('[faker-loader] updateContext modules:', modules);
+      }
+      // Flatten modules in case transform returns arrays
+      const flatModules = Array.isArray(modules) ? modules.flat() : [];
+      if (!flatModules.length) {
+        return { ...context, fakers: {} };
+      }
+      // Create registry as fakers (plural)
+      const registry = flatModules.reduce((acc, { name, ...rest }) => {
+        if (name) acc[name] = rest;
+        return acc;
+      }, {});
+      return { ...context, fakers: registry };
     }
   });
 
   // Composable loader function
   return async (context) => {
-    // Log the loading phase
     loggingHook(context, 'Loading faker modules');
-
-    // Wrap the loader in error handling
     return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
+      return await loader(context);
     }, context);
   };
-}; 
+};
+
+export const fakerLoader = createFakerLoader(); 

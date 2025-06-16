@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.54% </span>
+                <span class="strong">80.64% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>29/31</span>
+                <span class='fraction'>25/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">94.73% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>19/19</span>
+                <span class='fraction'>18/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/6</span>
+                <span class='fraction'>3/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.33% </span>
+                <span class="strong">80% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>28/30</span>
+                <span class='fraction'>24/30</span>
             </div>
         
             
@@ -195,46 +195,46 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">1013x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1012x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1009x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1012x</span>
-<span class="cline-any cline-yes">1009x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1009x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// LEGACY: This loader only supports the { name, methods } pattern. Use action-loader-2 for modern namespaced/array/factory patterns.
@@ -243,7 +243,7 @@
 &nbsp;
 import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 import { createLoaderWithMiddleware } from '../utils/loader-utils.js';
-import { getActionsFromModule, validateActionModule } from './lib/action-loader-utils.js';
+import { getActionsFromModule, validateActionModule } from '../utils/action-loader-utils.js';
 &nbsp;
 /**
  * File patterns for actions
@@ -289,10 +289,10 @@ const extractActions = (modules, context) =&gt; {
     return registry;
   }
   for (const mod of modules) {
-    if (!mod || typeof mod !== 'object') {
-      logger?.debug?.('[action-loader] Skipping non-object module:', mod);
-      logger?.error?.('[action-loader] Invalid module (not an object):', mod);
-      continue;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!mod || typeof mod !== 'object') {
+<span class="cstat-no" title="statement not covered" >      logger?.debug?.('[action-loader] Skipping non-object module:', mod);</span>
+<span class="cstat-no" title="statement not covered" >      logger?.error?.('[action-loader] Invalid module (not an object):', mod);</span>
+<span class="cstat-no" title="statement not covered" >      continue;</span>
     }
     // Defensive: validate shape
     if (typeof mod.name !== 'string' || typeof mod.methods !== 'object' || mod.methods === null) {
@@ -309,7 +309,7 @@ const extractActions = (modules, context) =&gt; {
     }
     // Register as { method: fn } for legacy compatibility
     registry[mod.name] = {
-      method: validMethods.length &gt; 0 ? ((args) =&gt; validMethods[0][1]({ ...args, context, actions: registry })) : undefined
+      method: validMethods.length &gt; 0 ? (<span class="fstat-no" title="function not covered" >(a</span>rgs) =&gt; <span class="cstat-no" title="statement not covered" >validMethods[0][1]({ ...args, context, actions: registry }))</span> : undefined
     };
   }
   return registry;
@@ -331,7 +331,7 @@ export default actionLoader; </pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-09T00:03:32.901Z
+                at 2025-06-13T21:24:44.547Z
             </div>
         <script src="../prettify.js"></script>
         <script>

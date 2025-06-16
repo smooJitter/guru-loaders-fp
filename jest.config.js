@@ -5,7 +5,7 @@ export default {
   },
   transformIgnorePatterns: [
     '<rootDir>/bower_components/',
-    '<rootDir>/node_modules/',
+    '<rootDir>/node_modules/(?!(module-to-transform)/)',
   ],
   moduleNameMapper: {
     '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',

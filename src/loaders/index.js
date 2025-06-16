@@ -1,79 +1,76 @@
-import { createPipeline } from '../core/pipeline/create-pipeline.js';
-import { createModelLoader } from './model-loader.js';
-import { createTypeLoader } from './type-loader.js';
-import { createActionLoader } from './action-loader.js';
-import { createMethodLoader } from './method-loader.js';
-import { createServiceLoader } from './service-loader.js';
-import { createResolverLoader } from './resolver-loader.js';
-import { createRouteLoader } from './route-loader.js';
-import { createJsonLoader } from './json-loader.js';
-import { createMiddlewareLoader } from './middleware-loader.js';
-import { createSdlLoader } from './sdl-loader.js';
-import { createEnvLoader } from './env-loader.js';
-import { createDbLoader } from './db-loader.js';
-import { createFakerLoader } from './faker-loader.js';
-import { createDataLoader } from './data-loader.js';
-import { createPubsubLoader } from './pubsub-loader.js';
-import { createAuthLoader } from './auth-loader.js';
-import { createPluginLoader } from './plugin-loader.js';
+import { envLoader } from './env-loader.js';
+import { dbLoader } from './db-loader.js';
+import { modelLoader } from './model-loader.js';
+import { typeLoader } from './type-loader.js';
+import actionLoader from './action-loader-2/index.js';
+import { methodLoader } from './method-loader.js';
+import { serviceLoader } from './service-loader.js';
+import { resolverLoader } from './resolver-loader.js';
+import { jsonLoader } from './json-loader.js';
+import { sdlLoader } from './sdl-loader.js';
+import { middlewareLoader } from './middleware-loader.js';
+import { routeLoader } from './route-loader.js';
+import { fakerLoader } from './faker-loader.js';
+import { eventLoader } from './event-loader.js';
+import { serviceLoader as pluginLoader } from './plugin-loader.js';
+import dataLoader from './data-loader/data-loader.js';
+import { pubsubLoader } from './pubsub-loader.js';
+import { authLoader } from './auth-loader.js';
+import { populateTypeComposers } from './type-composer-loader-2/populateTypeComposers.js';
+import typeComposerLoader2 from './type-composer-loader-2/index.js';
+import handlerLoader from './handler-loader/index.js';
+import featureLoader from './feature-loader/feature-loader.js';
 
-export const createLoader = (type) => {
-  const pipeline = createPipeline(type);
-  
-  return async (context) => {
-    try {
-      return await pipeline(context);
-    } catch (error) {
-      context.logger.error(`Error in ${type} loader:`, error);
-      throw error;
-    }
-  };
+// Flat loader registry
+export const loaders = {
+  action: actionLoader,
+  auth: authLoader,
+  data: dataLoader,
+  db: dbLoader,
+  env: envLoader,
+  event: eventLoader,
+  faker: fakerLoader,
+  feature: featureLoader,
+  handler: handlerLoader,
+  json: jsonLoader,
+  method: methodLoader,
+  middleware: middlewareLoader,
+  model: modelLoader,
+  plugin: pluginLoader,
+  populateTypeComposers,
+  pubsub: pubsubLoader,
+  resolver: resolverLoader,
+  route: routeLoader,
+  sdl: sdlLoader,
+  service: serviceLoader,
+  type: typeLoader,
+  typeComposerLoader2
 };
 
-// Create all loaders
-export const createLoaders = (options = {}) => ({
-  // Core loaders (load first)
-  env: createEnvLoader(options),
-  db: createDbLoader(options),
-  auth: createAuthLoader(options),
-  // Feature loaders
-  models: createModelLoader(options),
-  types: createTypeLoader(options),
-  actions: createActionLoader(options),
-  methods: createMethodLoader(options),
-  services: createServiceLoader(options),
-  resolvers: createResolverLoader(options),
-  routes: createRouteLoader(options),
-  json: createJsonLoader(options),
-  middleware: createMiddlewareLoader(options),
-  sdl: createSdlLoader(options),
-  // Development loaders
-  faker: createFakerLoader(options),
-  // Data loaders
-  data: createDataLoader(options),
-  // Event loaders
-  pubsub: createPubsubLoader(options),
-  // Plugin loaders
-  plugin: createPluginLoader(options)
-});
-
-// Export individual loaders
+// Individual exports
 export {
-  createModelLoader,
-  createTypeLoader,
-  createActionLoader,
-  createMethodLoader,
-  createServiceLoader,
-  createResolverLoader,
-  createRouteLoader,
-  createJsonLoader,
-  createMiddlewareLoader,
-  createSdlLoader,
-  createEnvLoader,
-  createDbLoader,
-  createFakerLoader,
-  createDataLoader,
-  createPubsubLoader,
-  createAuthLoader,
-  createPluginLoader
-}; 
+  actionLoader,
+  authLoader,
+  dataLoader,
+  dbLoader,
+  envLoader,
+  eventLoader,
+  fakerLoader,
+  featureLoader,
+  handlerLoader,
+  jsonLoader,
+  methodLoader,
+  middlewareLoader,
+  modelLoader,
+  pluginLoader,
+  populateTypeComposers,
+  pubsubLoader,
+  resolverLoader,
+  routeLoader,
+  sdlLoader,
+  serviceLoader,
+  typeLoader,
+  typeComposerLoader2
+};
+
+// See src/createLoader for advanced composition patterns (pipeline, phased, selective, etc.) 
