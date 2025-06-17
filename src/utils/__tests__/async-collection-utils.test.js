@@ -65,4 +65,75 @@ describe('reduceAsync', () => {
     const result = await utils.reduceAsync(async (acc, x) => acc + x, 0)([]);
     expect(result).toBe(0);
   });
+});
+
+describe('mapAsync (concurrency)', () => {
+  it('respects concurrency limit', async () => {
+    const start = Date.now();
+    const delays = [50, 50, 50, 50];
+    const fn = async (x) => {
+      await new Promise(res => setTimeout(res, delays[x]));
+      return x;
+    };
+    // With concurrency=2, total time should be about 100ms (2 batches of 2)
+    const result = await utils.mapAsync(fn, { concurrency: 2 })([0, 1, 2, 3]);
+    const elapsed = Date.now() - start;
+    expect(result).toEqual([0, 1, 2, 3]);
+    expect(elapsed).toBeGreaterThanOrEqual(95); // allow for timer slop
+    expect(elapsed).toBeLessThan(200); // should not be fully sequential
+  });
+});
+
+describe('partitionAsync', () => {
+  it('partitions array asynchronously', async () => {
+    const result = await utils.partitionAsync(async x => x % 2 === 0)([1, 2, 3, 4]);
+    expect(result).toEqual([[2, 4], [1, 3]]);
+  });
+  it('returns [[], []] for empty input', async () => {
+    const result = await utils.partitionAsync(async x => x % 2 === 0)([]);
+    expect(result).toEqual([[], []]);
+  });
+  it('returns [[], []] for non-array input', async () => {
+    const result = await utils.partitionAsync(async x => x % 2 === 0)(null);
+    expect(result).toEqual([[], []]);
+  });
+  it('propagates error if function throws', async () => {
+    await expect(utils.partitionAsync(async () => { throw new Error('fail'); })([1])).rejects.toThrow('fail');
+  });
+});
+
+describe('sortAsync', () => {
+  it('sorts array asynchronously', async () => {
+    const result = await utils.sortAsync(async x => 10 - x)([1, 2, 3]);
+    expect(result).toEqual([3, 2, 1]);
+  });
+  it('returns empty array for empty input', async () => {
+    const result = await utils.sortAsync(async x => x)([]);
+    expect(result).toEqual([]);
+  });
+  it('returns empty array for non-array input', async () => {
+    const result = await utils.sortAsync(async x => x)(null);
+    expect(result).toEqual([]);
+  });
+  it('propagates error if function throws', async () => {
+    await expect(utils.sortAsync(async () => { throw new Error('fail'); })([1])).rejects.toThrow('fail');
+  });
+});
+
+describe('uniqueAsync', () => {
+  it('filters unique values asynchronously', async () => {
+    const result = await utils.uniqueAsync(async x => x % 2)([1, 2, 3, 4]);
+    expect(result).toEqual([1, 2]); // 1%2=1, 2%2=0, 3%2=1 (already seen), 4%2=0 (already seen)
+  });
+  it('returns empty array for empty input', async () => {
+    const result = await utils.uniqueAsync(async x => x)([]);
+    expect(result).toEqual([]);
+  });
+  it('returns empty array for non-array input', async () => {
+    const result = await utils.uniqueAsync(async x => x)(null);
+    expect(result).toEqual([]);
+  });
+  it('propagates error if function throws', async () => {
+    await expect(utils.uniqueAsync(async () => { throw new Error('fail'); })([1])).rejects.toThrow('fail');
+  });
 }); 

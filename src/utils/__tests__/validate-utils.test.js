@@ -21,6 +21,15 @@ describe('validateModule', () => {
   });
 });
 
+describe('validateModule (edge cases)', () => {
+  it('returns false for unknown type', () => {
+    expect(validate.validateModule('notatype', { foo: 1 })).toBe(false);
+  });
+  it('returns false for missing module', () => {
+    expect(validate.validateModule('model')).toBe(false);
+  });
+});
+
 describe('validateContext', () => {
   it('returns context if all required keys are present', () => {
     const ctx = { a: 1, b: 2 };
@@ -33,6 +42,17 @@ describe('validateContext', () => {
   it('returns context if required is empty', () => {
     const ctx = { a: 1 };
     expect(validate.validateContext([], ctx)).toBe(ctx);
+  });
+});
+
+describe('validateContext (edge cases)', () => {
+  it('rejects if all required keys are missing', async () => {
+    const ctx = {};
+    await expect(validate.validateContext(['a', 'b'], ctx)).rejects.toThrow('Missing context: a, b');
+  });
+  it('returns context if required is not provided', () => {
+    const ctx = { a: 1 };
+    expect(validate.validateContext(undefined, ctx)).toBe(ctx);
   });
 });
 
@@ -69,6 +89,25 @@ describe('detectCircularDeps', () => {
   });
 });
 
+describe('detectCircularDeps (edge cases)', () => {
+  it('returns false for disconnected nodes', () => {
+    const modules = [
+      { name: 'a', dependencies: [] },
+      { name: 'b', dependencies: [] }
+    ];
+    expect(validate.detectCircularDeps(modules)).toBe(false);
+  });
+  it('returns true for multiple cycles', () => {
+    const modules = [
+      { name: 'a', dependencies: ['b'] },
+      { name: 'b', dependencies: ['a'] },
+      { name: 'c', dependencies: ['d'] },
+      { name: 'd', dependencies: ['c'] }
+    ];
+    expect(validate.detectCircularDeps(modules)).toBe(true);
+  });
+});
+
 describe('validateDependencies', () => {
   it('returns true if all dependencies are present', async () => {
     const mod = { dependencies: ['a', 'b'] };
@@ -97,6 +136,24 @@ describe('validateDependencies', () => {
   });
   it('returns true if dependencies is empty array', async () => {
     const mod = { name: 'foo', dependencies: [] };
+    const ctx = {};
+    expect(await validate.validateDependencies(mod, ctx)).toBe(true);
+  });
+});
+
+describe('validateDependencies (edge cases)', () => {
+  it('returns true if dependencies is not an array', async () => {
+    const mod = { dependencies: 'not-an-array' };
+    const ctx = {};
+    expect(await validate.validateDependencies(mod, ctx)).toBe(true);
+  });
+  it('returns true if dependencies is undefined', async () => {
+    const mod = {};
+    const ctx = {};
+    expect(await validate.validateDependencies(mod, ctx)).toBe(true);
+  });
+  it('returns true if dependencies is null', async () => {
+    const mod = { dependencies: null };
     const ctx = {};
     expect(await validate.validateDependencies(mod, ctx)).toBe(true);
   });
@@ -131,5 +188,14 @@ describe('validateExports', () => {
   });
   it('rejects with all missing fields for tc', async () => {
     await expect(validate.validateExports('tc', {})).rejects.toThrow('Missing exports: name, schema, tc');
+  });
+});
+
+describe('validateExports (edge cases)', () => {
+  it('returns true for unknown type', async () => {
+    expect(await validate.validateExports('notatype', { foo: 1 })).toBe(true);
+  });
+  it('returns true for missing module', async () => {
+    expect(await validate.validateExports('model')).toBe(true);
   });
 }); 

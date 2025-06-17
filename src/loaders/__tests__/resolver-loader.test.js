@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { resolverLoader } from '../resolver-loader.js';
+import { resolverLoader } from '../resolver-loader';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({

@@ -92,4 +92,18 @@ export const createMethodLoader = (options = {}) =>
     validate: validateMethodModule
   });
 
-export default createMethodLoader(); 
+export const methodLoader = async (ctx = {}) => {
+  const options = ctx.options || {};
+  const loader = createMethodLoader({
+    findFiles: options.findFiles,
+    importModule: options.importModule,
+    patterns: options.patterns
+  });
+  const { context } = await loader(ctx);
+  if (!context.methods || typeof context.methods !== 'object') {
+    context.methods = {};
+  }
+  return { methods: context.methods };
+};
+
+export default methodLoader; 

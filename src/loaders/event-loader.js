@@ -23,7 +23,7 @@ const extractEvents = (module, context) => {
 };
 
 // Pipeline-friendly event loader
-export const eventLoader = async (ctx) => {
+export const eventLoader = async (ctx = {}) => {
   const options = ctx.options || {};
   const patterns = options.patterns || EVENT_PATTERNS;
   const findFiles = options.findFiles;
@@ -67,6 +67,12 @@ export const eventLoader = async (ctx) => {
     }
     logger.info && logger.info(`[event-loader] Loaded events: ${Object.keys(registry).join(', ')}`);
     // Return a context-mergeable object
-    return { ...ctx, events: registry };
+    const context = { ...ctx, events: registry };
+    if (!context.events || typeof context.events !== 'object') {
+      context.events = {};
+    }
+    return { events: context.events };
   }, ctx);
-}; 
+};
+
+export default eventLoader; 

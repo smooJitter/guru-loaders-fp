@@ -1,15 +1,21 @@
 export default {
   testEnvironment: 'node',
   transform: {
-    '^.+\\.js$': 'babel-jest',
+    '^.+\\.js$': [
+      'babel-jest',
+      {
+        presets: [
+          ['@babel/preset-env', { targets: { node: 'current' }, modules: false }]
+        ],
+        plugins: ['@babel/plugin-transform-modules-commonjs']
+      }
+    ]
   },
   transformIgnorePatterns: [
-    '<rootDir>/bower_components/',
-    '<rootDir>/node_modules/(?!(module-to-transform)/)',
+    'node_modules/(?!(module-to-transform)/)'
   ],
   moduleNameMapper: {
-    '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
-    '\\.(gif|ttf|eot|svg)$': '<rootDir>/__mocks__/fileMock.js'
+    '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   coverageThreshold: {
     global: {
@@ -22,4 +28,16 @@ export default {
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
+  moduleFileExtensions: ['js', 'jsx', 'json'],
+  testMatch: ['**/__tests__/**/*.test.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons']
+  },
+  testRunner: 'jest-circus/runner',
+  moduleDirectories: ['node_modules', '<rootDir>'],
+  roots: ['<rootDir>'],
+  modulePaths: ['<rootDir>'],
+  resolver: undefined,
+  testEnvironment: 'jest-environment-node'
 }; 

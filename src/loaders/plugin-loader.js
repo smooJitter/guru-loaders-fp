@@ -16,7 +16,7 @@ const pluginSchema = {
 };
 
 // Pipeline-friendly plugin loader
-export const pluginLoader = async (ctx) => {
+export const pluginLoader = async (ctx = {}) => {
   const options = ctx.options || {};
   const patterns = options.patterns || PLUGIN_PATTERNS;
   const findFiles = options.findFiles;
@@ -56,6 +56,12 @@ export const pluginLoader = async (ctx) => {
       }
     }
     // Return a context-mergeable object
-    return { ...ctx, plugins: registry };
+    const context = { ...ctx, plugins: registry };
+    if (!context.plugins || typeof context.plugins !== 'object') {
+      context.plugins = {};
+    }
+    return { plugins: context.plugins };
   }, ctx);
-}; 
+};
+
+export default pluginLoader; 

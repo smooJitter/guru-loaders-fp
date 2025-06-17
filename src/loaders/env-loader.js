@@ -76,7 +76,7 @@ const buildRegistry = curry((ctx, modules) => {
     const envObj = processModule(ctx, logger, module);
     if (envObj) {
       if (acc[envObj.name]) {
-        logger.warn('Duplicate env names found:', [envObj.name]);
+        logger.warn(`[env-loader] Duplicate env name: ${envObj.name}`);
       }
       return assoc(envObj.name, envObj, acc);
     }
@@ -86,7 +86,7 @@ const buildRegistry = curry((ctx, modules) => {
 });
 
 // Modular envLoader function
-export const envLoader = async (ctx) => {
+export const envLoader = async (ctx = {}) => {
   const options = ctx.options || {};
   const patterns = options.patterns || ENV_PATTERNS;
   const findFiles = options.findFiles || defaultFindFiles;
@@ -96,7 +96,9 @@ export const envLoader = async (ctx) => {
     loggingHook(ctx, 'Loading environment modules');
     const modules = await findAndImportModules(patterns, findFiles, importModule, ctx);
     const registry = buildRegistry(ctx, modules);
-    const flattenedEnvs = flattenObject(registry);
-    return mergeRight(ctx, flattenedEnvs);
+    const context = mergeRight(ctx, { envs: registry });
+    return { envs: context.envs };
   }, ctx);
 };
+
+export default envLoader;

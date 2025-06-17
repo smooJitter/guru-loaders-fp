@@ -81,4 +81,46 @@ describe('validateActionModule', () => {
     const mod = { default: [{ namespace: 'ns', name: 'foo' }] };
     expect(validateActionModule('test', mod)).toBe(false);
   });
+});
+
+describe('getActionsFromModule (edge cases)', () => {
+  it('does not throw if ctx is missing', () => {
+    expect(() => getActionsFromModule({ default: { foo: () => 1 } })).not.toThrow();
+  });
+  it('does not throw if logger is missing', () => {
+    expect(() => getActionsFromModule({ default: { foo: () => 1 } }, {})).not.toThrow();
+  });
+  it('handles both default and other named exports', () => {
+    const logger = { debug: jest.fn(), warn: jest.fn() };
+    const ctx = { services: { logger } };
+    const mod = { default: { foo: () => 1 }, bar: () => 2 };
+    const result = getActionsFromModule(mod, ctx);
+    expect(result.foo).toBeDefined();
+    expect(result.bar).toBeDefined();
+    expect(logger.warn).toHaveBeenCalled();
+  });
+  it('handles non-object default and actions', () => {
+    const logger = { debug: jest.fn(), warn: jest.fn() };
+    const ctx = { services: { logger } };
+    const mod = { default: 123, actions: 456 };
+    const result = getActionsFromModule(mod, ctx);
+    expect(result).toEqual({});
+  });
+});
+
+describe('validateActionModule (edge cases)', () => {
+  it('returns false for missing mod', () => {
+    expect(validateActionModule('test')).toBe(false);
+  });
+  it('returns false for non-object mod', () => {
+    expect(validateActionModule('test', 123)).toBe(false);
+  });
+  it('returns false for array default with wrong types', () => {
+    const mod = { default: [{ namespace: 1, name: 2, method: 3 }] };
+    expect(validateActionModule('test', mod)).toBe(false);
+  });
+  it('returns false for object default with non-function values', () => {
+    const mod = { default: { ns: { foo: 1 } } };
+    expect(validateActionModule('test', mod)).toBe(false);
+  });
 }); 

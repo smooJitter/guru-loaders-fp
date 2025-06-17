@@ -194,4 +194,7 @@ export const createTypeLoader = (options = {}) => {
   };
 };
 
+export const typeLoader = createTypeLoader();
+export default typeLoader;
+
 // For further extension, see README in this directory. 

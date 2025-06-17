@@ -60,6 +60,7 @@ export const getActionsFromModule = (module, ctx) => {
  * @returns {boolean}
  */
 export const validateActionModule = (type, mod) => {
+  if (!mod || typeof mod !== 'object') return false;
   let actionsArr;
   if (typeof mod.default === 'function') {
     actionsArr = mod.default({}); // Validate shape, not logic

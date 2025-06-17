@@ -4,7 +4,7 @@ import { routeLoader } from '../route-loader.js';
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
   routes: {},
-  services: {},
+  services: { logger: mockLogger },
   config: {},
   logger: mockLogger
 });

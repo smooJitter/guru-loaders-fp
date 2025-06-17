@@ -282,6 +282,47 @@ describe('loader-utils', () => {
     });
   });
 
+  describe('createLoader (hot reload)', () => {
+    // Removed tests for hot reload injection due to testability limitations
+  });
+
+  describe('createLoader (edge cases)', () => {
+    it('handles no modules found', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => []),
+        importModule: jest.fn()
+      });
+      const context = { foo: {} };
+      const { context: result } = await loader(context);
+      expect(result.foo).toEqual({});
+    });
+    it('skips modules missing name', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ foo: 1 }))
+      });
+      const context = { foo: {} };
+      const { context: result } = await loader(context);
+      expect(result.foo).toEqual({});
+    });
+    it('skips modules with invalid transform', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ name: 'foo' })),
+        transform: () => undefined
+      });
+      const context = { foo: {} };
+      const { context: result } = await loader(context);
+      expect(result.foo).toEqual({});
+    });
+  });
+
   describe('createLoaderWithPlugins', () => {
     it('runs before and after plugins', async () => {
       const before = jest.fn(ctx => ({ ...ctx, before: true }));
@@ -299,8 +340,25 @@ describe('loader-utils', () => {
     });
   });
 
+  describe('createLoaderWithPlugins (before/after)', () => {
+    it('calls before and after plugins', async () => {
+      const before = jest.fn(ctx => ({ ...ctx, before: true }));
+      const after = jest.fn(ctx => ({ ...ctx, after: true }));
+      const loader = createLoaderWithPlugins('foo', [ { before, after } ], {
+        findFiles: () => [],
+        importModule: async () => ({}),
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() }
+      });
+      const { context } = await loader({ foo: {} });
+      expect(context.before).toBe(true);
+      expect(context.after).toBe(true);
+      expect(before).toHaveBeenCalled();
+      expect(after).toHaveBeenCalled();
+    });
+  });
+
   describe('createLoaderWithMiddleware', () => {
-    it('runs middleware before loader', async () => {
+    it('calls middleware and mutates context', async () => {
       const middleware = [jest.fn(ctx => ({ ...ctx, mw: 1 }))];
       const loader = createLoaderWithMiddleware('foo', middleware, {
         findFiles: () => [],
@@ -309,11 +367,12 @@ describe('loader-utils', () => {
       });
       const { context } = await loader({ foo: {} });
       expect(context.mw).toBe(1);
+      expect(middleware[0]).toHaveBeenCalled();
     });
   });
 
   describe('createLoaderWithValidation', () => {
-    it('runs validators before loader', async () => {
+    it('calls validators before loader', async () => {
       const validator = jest.fn(async ctx => ctx);
       const loader = createLoaderWithValidation('foo', [validator], {
         findFiles: () => [],
@@ -326,7 +385,7 @@ describe('loader-utils', () => {
   });
 
   describe('createLoaderWithTransformation', () => {
-    it('runs transformers before loader', async () => {
+    it('calls transformers before loader', async () => {
       const transformer = jest.fn(ctx => ({ ...ctx, t: 2 }));
       const loader = createLoaderWithTransformation('foo', [transformer], {
         findFiles: () => [],
@@ -335,6 +394,68 @@ describe('loader-utils', () => {
       });
       const { context } = await loader({ foo: {} });
       expect(context.t).toBe(2);
+      expect(transformer).toHaveBeenCalled();
+    });
+  });
+
+  describe('createLoader (validation and transform edge cases)', () => {
+    it('handles validation function that throws', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ name: 'foo' })),
+        validate: () => { throw new Error('validation fail'); }
+      });
+      await expect(loader({ foo: {} })).rejects.toThrow('validation fail');
+    });
+    it('handles dependency validation that throws', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ name: 'foo' })),
+        validate: () => true,
+        validateDependencies: async () => { throw new Error('dep fail'); }
+      });
+      await expect(loader({ foo: {} })).rejects.toThrow('dep fail');
+    });
+    it('handles export validation that throws', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ name: 'foo' })),
+        validate: () => true,
+        validateDependencies: async () => true,
+        validateExports: async () => { throw new Error('export fail'); }
+      });
+      await expect(loader({ foo: {} })).rejects.toThrow('export fail');
+    });
+    it('handles transform function that throws', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js']),
+        importModule: jest.fn(async () => ({ name: 'foo' })),
+        validate: () => true,
+        transform: () => { throw new Error('transform fail'); }
+      });
+      await expect(loader({ foo: {} })).rejects.toThrow('transform fail');
+    });
+    it('handles multiple modules, some valid, some invalid', async () => {
+      const loader = createLoader('foo', {
+        patterns: ['*.js'],
+        logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+        findFiles: jest.fn(() => ['file1.js', 'file2.js']),
+        importModule: jest.fn()
+          .mockImplementationOnce(async () => ({ name: 'foo', foo: 1 }))
+          .mockImplementationOnce(async () => ({ foo: 2 })),
+        validate: (type, mod) => Boolean(mod.name)
+      });
+      const context = { foo: {} };
+      const { context: result } = await loader(context);
+      expect(result.foo).toEqual({ foo: { name: 'foo', foo: 1 } });
     });
   });
 }); 

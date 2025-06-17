@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import handlerLoader from '../handler-loader/index.js';
 import { withNamespace } from 'guru-loaders-fp/utils';
-import { extractHandlers } from '../handler-loader/extractHandlers.js';
+import { extractHandlers } from '../handler-loader/lib/extractHandlers.js';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
@@ -12,14 +12,20 @@ const baseContext = () => ({
 });
 
 // Happy path: valid handler factory
-const validHandlerFactory = jest.fn(() => ({
-  name: 'onFoo',
-  handler: jest.fn()
+const validHandlerFactory = jest.fn(() => withNamespace('foo', {
+  onFoo: jest.fn()
 }));
+validHandlerFactory.mockImplementation(() => withNamespace('foo', { onFoo: jest.fn() }));
 
 // Edge: duplicate name factories
-const duplicateHandlerFactoryA = jest.fn(() => ({ name: 'dupe', handler: jest.fn() }));
-const duplicateHandlerFactoryB = jest.fn(() => ({ name: 'dupe', handler: jest.fn() }));
+const duplicateHandlerFactoryA = jest.fn(() => withNamespace('dupe', {
+  getDupe: jest.fn()
+}));
+duplicateHandlerFactoryA.mockImplementation(() => withNamespace('dupe', { getDupe: jest.fn() }));
+const duplicateHandlerFactoryB = jest.fn(() => withNamespace('dupe', {
+  getDupe: jest.fn()
+}));
+duplicateHandlerFactoryB.mockImplementation(() => withNamespace('dupe', { getDupe: jest.fn() }));
 
 // Failure: invalid handler (missing name)
 const invalidHandlerFactory = jest.fn(() => ({ handler: jest.fn() }));
@@ -40,8 +46,8 @@ describe('handlerLoader', () => {
       findFiles: () => files
     };
     const result = await handlerLoader(ctx);
-    expect(result.handlers.onFoo).toBeDefined();
-    expect(typeof result.handlers.onFoo.handler).toBe('function');
+    expect(result.handlers.foo.onFoo).toBeDefined();
+    expect(typeof result.handlers.foo.onFoo).toBe('function');
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
@@ -57,7 +63,8 @@ describe('handlerLoader', () => {
       findFiles: () => files
     };
     const result = await handlerLoader(ctx);
-    expect(result.handlers.dupe).toBeDefined();
+    expect(result.handlers.dupe.getDupe).toBeDefined();
+    expect(typeof result.handlers.dupe.getDupe).toBe('function');
     expect(mockLogger.warn).toHaveBeenCalled();
   });
 

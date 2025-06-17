@@ -80,4 +80,18 @@ export const createFakerLoader = (options = {}) => {
   };
 };
 
-export const fakerLoader = createFakerLoader(); 
+export const fakerLoader = async (ctx = {}) => {
+  const options = ctx.options || {};
+  const loader = createFakerLoader({
+    findFiles: options.findFiles,
+    importModule: options.importModule,
+    patterns: options.patterns
+  });
+  const { context } = await loader(ctx);
+  if (!context.fakers || typeof context.fakers !== 'object') {
+    context.fakers = {};
+  }
+  return { fakers: context.fakers };
+};
+
+export default fakerLoader; 

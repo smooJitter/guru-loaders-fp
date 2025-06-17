@@ -15,7 +15,7 @@ export const extractService = (module, ctx) => {
   if (!module || typeof module !== 'object') return undefined;
   let serviceObj;
   if (typeof module.default === 'function') {
-    serviceObj = module.default({ services: ctx?.services, config: ctx?.config });
+    serviceObj = module.default(ctx);
   } else {
     serviceObj = module.default || module;
   }
@@ -43,7 +43,30 @@ export const createServiceLoader = (options = {}) =>
     patterns: options.patterns || SERVICE_PATTERNS,
     ...options,
     transform: extractService,
-    validate: validateServiceModule
+    validate: validateServiceModule,
+    onDuplicate: (name, ctx) => {
+      ctx.logger?.warn('[service-loader]', 'Duplicate service names found:', [name]);
+    },
+    onInvalid: (module, ctx) => {
+      ctx.logger?.warn('[service-loader]', 'Invalid service module:', module);
+    }
   });
 
-export default createServiceLoader(); 
+export const serviceLoader = async (ctx = {}) => {
+  const options = ctx.options || {};
+  const loader = createServiceLoader({
+    findFiles: options.findFiles,
+    importModule: options.importModule,
+    patterns: options.patterns
+  });
+  
+  const { context } = await loader(ctx);
+  
+  if (!context.services) {
+    context.services = {};
+  }
+  
+  return context;
+};
+
+export default serviceLoader; 

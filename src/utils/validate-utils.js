@@ -2,6 +2,7 @@ import * as R from 'ramda';
 
 // Module validation
 export const validateModule = (type, module) => {
+  if (!module || typeof module !== 'object') return false;
   // LEGACY: For actions/resolvers, only support { name, methods } where:
   // - name: non-empty string
   // - methods: object (can be empty, but must exist)
@@ -20,6 +21,7 @@ export const validateModule = (type, module) => {
 
 // Context validation
 export const validateContext = R.curry((required, context) => {
+  if (!Array.isArray(required) || required.length === 0) return context;
   const missing = R.difference(required, R.keys(context));
   return R.isEmpty(missing) 
     ? context 
@@ -76,6 +78,7 @@ export const validateDependencies = (module, context) => {
 
 // Validate module exports
 export const validateExports = (type, module) => {
+  if (!module || typeof module !== 'object') return true;
   // LEGACY: For actions/resolvers, only support { name, methods } where:
   // - name: non-empty string
   // - methods: object (can be empty, but must exist)
@@ -86,10 +89,27 @@ export const validateExports = (type, module) => {
     resolvers: [] // Custom check below
   };
   if (type === 'actions' || type === 'resolvers') {
-    const valid = typeof module.name === 'string' && module.name.length > 0 && typeof module.methods === 'object' && module.methods !== null;
-    return valid
-      ? true
-      : Promise.reject(new Error(`Missing or invalid exports for legacy ${type}: { name: string, methods: object } required`));
+    // Accept legacy shape
+    const isLegacy = typeof module.name === 'string' && module.name.length > 0 && typeof module.methods === 'object' && module.methods !== null;
+    // Accept array of { namespace, name, method }
+    const isModernArray = Array.isArray(module) && module.every(
+      r => r && typeof r.namespace === 'string' && typeof r.name === 'string' && typeof r.method === 'function'
+    );
+    // Accept object of { [namespace]: { [name]: fn } }
+    const isModernObject = !Array.isArray(module) && Object.values(module).every(
+      ns => ns && typeof ns === 'object' && Object.values(ns).every(fn => typeof fn === 'function')
+    );
+    // Accept modules with a default export that is a function, array, or object
+    const def = module.default;
+    const isDefaultFunction = typeof def === 'function';
+    const isDefaultArray = Array.isArray(def) && def.every(
+      r => r && typeof r.namespace === 'string' && typeof r.name === 'string' && typeof r.method === 'function'
+    );
+    const isDefaultObject = def && typeof def === 'object' && !Array.isArray(def) && Object.values(def).every(
+      ns => ns && typeof ns === 'object' && Object.values(ns).every(fn => typeof fn === 'function')
+    );
+    if (isLegacy || isModernArray || isModernObject || isDefaultFunction || isDefaultArray || isDefaultObject) return true;
+    return Promise.reject(new Error(`Missing or invalid exports for ${type}: must be legacy ({ name, methods }), array of { namespace, name, method }, object of { [namespace]: { [name]: fn } }, or a default export in one of these shapes`));
   }
   const missing = requiredExports[type]?.filter(prop => !module[prop]) || [];
   return R.isEmpty(missing) 

@@ -24,51 +24,57 @@ const extractJson = (module, context) => {
   return module.default || module;
 };
 
-// Pipeline-friendly json loader
-export const jsonLoader = async (ctx) => {
+export const jsonLoader = async (ctx = {}) => {
   const options = ctx.options || {};
   const patterns = options.patterns || JSON_PATTERNS;
   const findFiles = options.findFiles || defaultFindFiles;
   const importModule = options.importModule || defaultImportModule;
   const logger = getLoaderLogger(ctx, options, 'json-loader');
 
-  return errorHandlingHook(async () => {
-    loggingHook(ctx, 'Loading JSON modules');
-    let files = findFiles(patterns.default);
-    let modules = [];
+  let files = [];
+  try {
+    files = findFiles(patterns.default);
+  } catch (err) {
+    logger.warn('[json-loader] Error finding files:', err.message);
+    files = [];
+  }
+
+  let modules = [];
+  try {
+    modules = await Promise.all(files.map(file => importModule(file, ctx)));
+  } catch (err) {
+    logger.warn('[json-loader] Error importing modules:', err.message);
+    modules = [];
+  }
+
+  const registry = {};
+  for (let i = 0; i < modules.length; i++) {
+    let jsonObj;
     try {
-      modules = await Promise.all(files.map(file => importModule(file, ctx)));
-    } catch (err) {
-      logger.warn(`[json-loader] Error importing JSON files: ${err.message}`);
-      modules = [];
-    }
-    const registry = {};
-    for (let i = 0; i < modules.length; i++) {
-      let jsonObj;
-      try {
-        jsonObj = extractJson(modules[i], ctx);
-        if (!jsonObj) throw new Error('Module did not export a valid object or factory');
-        validationHook(jsonObj, jsonSchema);
-        // Context injection and transform
-        const injected = contextInjectionHook(jsonObj, { services: ctx?.services });
-        const finalObj = {
-          ...injected,
-          type: 'json',
-          timestamp: Date.now()
-        };
-        if (finalObj.name) {
-          if (registry[finalObj.name]) {
-            logger.warn('Duplicate JSON names found:', [finalObj.name]);
-          }
-          registry[finalObj.name] = finalObj;
-        } else {
-          throw new Error('Missing name property');
+      jsonObj = extractJson(modules[i], ctx);
+      if (!jsonObj || typeof jsonObj !== 'object') throw new Error('Module did not export a valid object or factory');
+      validationHook(jsonObj, jsonSchema);
+      // Context injection and transform
+      const injected = contextInjectionHook(jsonObj, { services: ctx?.services });
+      const finalObj = {
+        ...injected,
+        type: 'json',
+        timestamp: Date.now()
+      };
+      if (finalObj.name) {
+        if (registry[finalObj.name]) {
+          logger.warn('[json-loader] Duplicate JSON names found:', [finalObj.name]);
         }
-      } catch (err) {
-        logger.warn(`Invalid or missing JSON in file: ${files[i]}: ${err.message}`);
+        registry[finalObj.name] = finalObj;
+      } else {
+        throw new Error('Missing name property');
       }
+    } catch (err) {
+      logger.warn('[json-loader] Invalid or missing JSON in file:', files[i], err.message);
     }
-    // Return a context-mergeable object
-    return { ...ctx, jsons: registry };
-  }, ctx);
-}; 
+  }
+  ctx.jsons = registry;
+  return { jsons: ctx.jsons };
+};
+
+export default jsonLoader; 

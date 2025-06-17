@@ -56,4 +56,7 @@ export const createAuthLoader = (options = {}) => {
       return { context: loaderContext, cleanup };
     }, context);
   };
-}; 
+};
+
+export const authLoader = createAuthLoader();
+export default authLoader; 

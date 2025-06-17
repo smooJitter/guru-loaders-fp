@@ -4,25 +4,25 @@ import { sdlLoader } from '../sdl-loader.js';
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
   sdls: {},
-  services: {},
+  services: { logger: mockLogger },
   config: {},
   logger: mockLogger
 });
 
 // Happy path: valid sdl factory
-const validSdlFactory = jest.fn(() => ({
+const validSdlFactory = jest.fn((ctx) => ({
   name: 'User',
   sdl: 'type User { id: ID! name: String! }'
 }));
 
 // Edge: duplicate name factories
-const duplicateSdlFactoryA = jest.fn(() => ({ name: 'dupe', sdl: 'type A { a: Int }' }));
-const duplicateSdlFactoryB = jest.fn(() => ({ name: 'dupe', sdl: 'type B { b: Int }' }));
+const duplicateSdlFactoryA = jest.fn((ctx) => ({ name: 'dupe', sdl: 'type A { a: Int }' }));
+const duplicateSdlFactoryB = jest.fn((ctx) => ({ name: 'dupe', sdl: 'type B { b: Int }' }));
 
 // Failure: invalid sdl (missing name)
-const invalidSdlFactory = jest.fn(() => ({ sdl: 'type X { x: Int }' }));
+const invalidSdlFactory = jest.fn((ctx) => ({ sdl: 'type X { x: Int }' }));
 // Failure: invalid sdl (not a string)
-const invalidTypeSdlFactory = jest.fn(() => ({ name: 'bad', sdl: 42 }));
+const invalidTypeSdlFactory = jest.fn((ctx) => ({ name: 'bad', sdl: 42 }));
 
 describe('sdlLoader', () => {
   beforeEach(() => {
@@ -34,7 +34,7 @@ describe('sdlLoader', () => {
     const modules = { 'User.sdl.js': { default: validSdlFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await sdlLoader(ctx);
@@ -51,12 +51,12 @@ describe('sdlLoader', () => {
     };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await sdlLoader(ctx);
     expect(result.sdls.dupe).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith('[sdl-loader] Duplicate SDL name: dupe');
   });
 
   it('skips invalid sdl objects (missing name) and does not register them (failure)', async () => {
@@ -64,12 +64,12 @@ describe('sdlLoader', () => {
     const modules = { 'bad.sdl.js': { default: invalidSdlFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await sdlLoader(ctx);
     expect(result.sdls).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith('[sdl-loader] Dropped invalid SDL object during transform (missing name).', expect.any(Object));
   });
 
   it('skips invalid sdl objects (not a string) and does not register them (failure)', async () => {
@@ -77,12 +77,12 @@ describe('sdlLoader', () => {
     const modules = { 'badtype.sdl.js': { default: invalidTypeSdlFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await sdlLoader(ctx);
     expect(result.sdls).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith('[sdl-loader] SDL object has invalid schema (not a string).', expect.any(Object));
   });
 
   it('handles empty file list (edge case)', async () => {

@@ -33,26 +33,57 @@ export const extractPubsub = (module, ctx) => {
  * Validate a pubsub module
  * @param {string} type - The loader type ("pubsubs")
  * @param {object} module - The imported module
+ * @param {object} ctx - The loader context
  * @returns {boolean} True if valid, false otherwise
  */
-export const validatePubsubModule = (type, module) => {
-  const pubsubs = extractPubsub(module, {});
-  return pubsubs.every(obj => obj && typeof obj.name === 'string');
+export const validatePubsubModule = (type, module, ctx = {}) => {
+  const logger = (ctx && (ctx.logger || (ctx.services && ctx.services.logger))) || console;
+  const pubsubs = extractPubsub(module, ctx);
+  const allValid = pubsubs.every(obj => obj && typeof obj.name === 'string');
+  if (!allValid) {
+    logger.warn?.('[pubsubs-loader] Dropped invalid pubsub object during validation.', pubsubs);
+  }
+  return allValid;
 };
 
 export const createPubsubLoader = (options = {}) =>
   createLoader('pubsubs', {
     patterns: options.patterns || PUBSUB_PATTERNS,
     ...options,
-    transform: (module, ctx) => {
-      // Flatten array of pubsubs into a registry keyed by name
-      const pubsubs = extractPubsub(module, ctx);
-      return pubsubs.reduce((acc, obj) => {
-        if (obj && obj.name) acc[obj.name] = obj;
-        return acc;
-      }, {});
+    transform: (modules, ctx) => {
+      const logger = (ctx && (ctx.logger || (ctx.services && ctx.services.logger))) || console;
+      const pubsubs = {};
+
+      for (const module of modules) {
+        const pubsubList = extractPubsub(module, ctx);
+        for (const obj of pubsubList) {
+          if (!obj || typeof obj.name !== 'string') {
+            logger.warn?.('[pubsubs-loader] Dropped invalid pubsub object during transform (missing name).', obj);
+            continue;
+          }
+          if (typeof obj.topic !== 'string') {
+            logger.warn?.('[pubsubs-loader] Pubsub object has invalid topic (not a string).', obj);
+          }
+          if (pubsubs[obj.name]) {
+            logger.warn?.(`[pubsubs-loader] Duplicate pubsub name: ${obj.name}`);
+          }
+          pubsubs[obj.name] = obj;
+        }
+      }
+
+      return pubsubs;
     },
-    validate: validatePubsubModule
+    validate: (type, module, ctx) => validatePubsubModule(type, module, ctx)
   });
 
-export default createPubsubLoader(); 
+export const pubsubLoader = async (ctx = {}) => {
+  const options = ctx.options || {};
+  const loader = createPubsubLoader({
+    findFiles: options.findFiles,
+    importModule: options.importModule,
+    patterns: options.patterns
+  });
+  const { context } = await loader(ctx);
+  return { pubsubs: context.pubsubs || {} };
+};
+export default pubsubLoader; 

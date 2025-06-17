@@ -81,7 +81,12 @@ export const createFeatureLoader = (options = {}) =>
       reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, logger);
 
       await runFeatureLifecycle('afterAll', context);
+
+      if (!context.typeComposers || typeof context.typeComposers !== 'object') {
+        context.typeComposers = {};
+      }
     }
   });
 
-export default createFeatureLoader();
+export const featureLoader = createFeatureLoader();
+export default featureLoader;

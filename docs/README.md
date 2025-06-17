@@ -104,4 +104,67 @@ context = await runSelectedLoaders(context, loaders, ['env', 'model', 'action'])
 ---
 
 **Guru-Loader-FP** makes your app's architecture modular, testable, and ready for scale.
-For more patterns and advanced usage, see the docs directory! 
+For more patterns and advanced usage, see the docs directory!
+
+---
+
+## 📦 Using guru-loaders-fp as a Private GitHub Package
+
+You can use this package across multiple private or personal repositories by installing it directly from this private GitHub repo.
+
+### Installation in Other Projects
+
+Add to your `package.json` dependencies:
+
+```json
+"dependencies": {
+  "guru-loaders-fp": "git+ssh://git@github.com:your-username/guru-loaders-fp.git#main"
+}
+```
+
+Or install directly:
+
+```sh
+npm install git+ssh://git@github.com:your-username/guru-loaders-fp.git#main
+```
+
+- Replace `your-username` with your GitHub username.
+- Use `#main` for the main branch, or `#v1.2.3` for a specific tag.
+
+### Updating the Package
+
+After pushing changes to this repo, update the dependency in consuming projects:
+
+```sh
+npm update guru-loaders-fp
+```
+
+Or reinstall:
+
+```sh
+rm -rf node_modules package-lock.json && npm install
+```
+
+### Versioning (Recommended)
+
+Tag stable releases for easier dependency management:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Reference the tag in your dependency:
+
+```json
+"guru-loaders-fp": "git+ssh://git@github.com:your-username/guru-loaders-fp.git#v1.0.0"
+```
+
+### Security & Authentication
+
+- Only users with access to this private repo can install the package.
+- For CI/CD, use SSH deploy keys or GitHub tokens with `repo` scope.
+- For HTTPS installs in CI:
+  ```sh
+  npm install https://<TOKEN>@github.com/your-username/guru-loaders-fp.git
+  ``` 

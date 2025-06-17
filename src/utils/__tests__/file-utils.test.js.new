@@ -14,23 +14,29 @@ const mockStat = jest.fn();
 const mockWatch = jest.fn();
 
 // Mock fs/promises
-jest.mock('fs/promises', () => ({
-  readFile: (...args) => mockReadFile(...args),
-  writeFile: (...args) => mockWriteFile(...args),
-  mkdir: (...args) => mockMkdir(...args),
-  readdir: (...args) => mockReaddir(...args),
-  copyFile: (...args) => mockCopyFile(...args),
-  rename: (...args) => mockRename(...args),
-  unlink: (...args) => mockUnlink(...args),
-  stat: (...args) => mockStat(...args),
-  watch: (...args) => mockWatch(...args)
-}));
+jest.mock('fs/promises', () => {
+  const mockFs = {
+    readFile: (...args) => mockReadFile(...args),
+    writeFile: (...args) => mockWriteFile(...args),
+    mkdir: (...args) => mockMkdir(...args),
+    readdir: (...args) => mockReaddir(...args),
+    copyFile: (...args) => mockCopyFile(...args),
+    rename: (...args) => mockRename(...args),
+    unlink: (...args) => mockUnlink(...args),
+    stat: (...args) => mockStat(...args),
+    watch: (...args) => mockWatch(...args)
+  };
+  return mockFs;
+});
 
 // Mock glob
 const mockGlobSync = jest.fn();
-jest.mock('glob', () => ({
-  sync: (...args) => mockGlobSync(...args)
-}));
+jest.mock('glob', () => {
+  const mockGlob = {
+    sync: (...args) => mockGlobSync(...args)
+  };
+  return mockGlob;
+});
 
 describe('findFiles', () => {
   beforeEach(() => {

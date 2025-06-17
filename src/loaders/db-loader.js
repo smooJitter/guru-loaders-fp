@@ -168,4 +168,7 @@ export const createDbLoaderWithTransformation = (transformers = [], options = {}
       }, {}, dbs);
     }),
     validate: options.validate || validateDbModule
-  }); 
+  });
+
+export const dbLoader = createDbLoader();
+export default dbLoader; 
