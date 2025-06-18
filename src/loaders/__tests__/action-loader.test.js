@@ -1,83 +1,242 @@
-// LEGACY: This test suite is for the legacy action-loader. Only the { name, methods } pattern is supported.
-// For modern patterns, see action-loader-2 tests.
-//
+import { createActionLoader } from '../action-loader/index.js';
+import { withNamespace } from 'guru-loaders-fp/utils';
+import { extractActions } from '../action-loader/extractActions.js';
+import { validateActionModule } from '../action-loader/validateActionModule.js';
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import actionLoader from '../action-loader.js';
+describe('action-loader', () => {
+  const mockLogger = { warn: jest.fn(), error: jest.fn(), info: jest.fn() };
+  const mockContext = { services: { logger: mockLogger } };
 
-const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
-const baseContext = () => ({
-  actions: {},
-  services: {},
-  config: {},
-  logger: mockLogger
-});
-
-// Happy path: valid action module
-const validActionModule = { name: 'doSomething', methods: { action: jest.fn() } };
-// Edge: duplicate name modules
-const duplicateActionModuleA = { name: 'dupe', methods: { action: jest.fn() } };
-const duplicateActionModuleB = { name: 'dupe', methods: { action: jest.fn() } };
-// Failure: invalid action (missing name)
-const invalidActionModule = { methods: { action: jest.fn() } };
-// Failure: invalid action (not a function)
-const invalidTypeActionModule = { name: 'bad', methods: { action: 42 } };
-
-describe('actionLoader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('registers a valid action object (happy path)', async () => {
-    const ctx = baseContext();
-    const modules = [validActionModule];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions.doSomething).toBeDefined();
-    expect(typeof result.context.actions.doSomething.method).toBe('function');
-    expect(mockLogger.warn).not.toHaveBeenCalled();
+  it('loads actions from withNamespace (extractActions)', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: async () => 'created',
+        delete: async () => 'deleted'
+      }) }
+    ];
+    const registry = extractActions(modules, mockContext);
+    await expect(registry.post.create()).resolves.toBe('created');
+    await expect(registry.post.delete()).resolves.toBe('deleted');
   });
 
-  it('warns on duplicate action names (edge case)', async () => {
-    const ctx = baseContext();
-    const modules = [duplicateActionModuleA, duplicateActionModuleB];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions.dupe).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalled();
+  it('loads actions from factory export (extractActions)', async () => {
+    const modules = [
+      { default: () => withNamespace('admin', {
+        impersonate: async () => 'impersonated'
+      }) }
+    ];
+    const registry = extractActions(modules, mockContext);
+    await expect(registry.admin.impersonate()).resolves.toBe('impersonated');
   });
 
-  it('skips invalid action objects (missing name) and does not register them (failure)', async () => {
-    const ctx = baseContext();
-    const modules = [invalidActionModule];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+  it('attaches meta/options to actions (extractActions)', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: {
+          method: async () => 'created',
+          meta: { audit: true },
+          options: { requiresAdmin: true }
+        }
+      }) }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create.meta).toEqual({ audit: true });
+    expect(registry.post.create.options).toEqual({ requiresAdmin: true });
   });
 
-  it('skips invalid action objects (not a function) and does not register them (failure)', async () => {
-    const ctx = baseContext();
-    const modules = [invalidTypeActionModule];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+  it('does not attach meta/options if not present', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: async () => 'created'
+      }) }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create.meta).toBeUndefined();
+    expect(registry.post.create.options).toBeUndefined();
   });
 
-  it('handles empty modules array (edge case)', async () => {
-    const ctx = baseContext();
+  it('warns on duplicate actions (extractActions)', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: async () => 'one'
+      }) },
+      { default: withNamespace('post', {
+        create: async () => 'two'
+      }) }
+    ];
+    extractActions(modules, mockContext);
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Duplicate action: post.create'));
+  });
+
+  it('injects context and actions at call time (extractActions)', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: async ({ context, actions }) => {
+          expect(context).toBe(mockContext);
+          expect(actions.post.create).toBeDefined();
+          return 'ok';
+        }
+      }) }
+    ];
+    const registry = extractActions(modules, mockContext);
+    await expect(registry.post.create({})).resolves.toBe('ok');
+  });
+
+  it('supports cross-namespace actions (extractActions)', async () => {
+    const modules = [
+      { default: [
+        { namespace: 'post', name: 'create', method: async () => 'created' },
+        { namespace: 'admin', name: 'impersonate', method: async () => 'impersonated' }
+      ] }
+    ];
+    const registry = extractActions(modules, mockContext);
+    await expect(registry.post.create()).resolves.toBe('created');
+    await expect(registry.admin.impersonate()).resolves.toBe('impersonated');
+  });
+
+  it('integration: loads and namespaces actions via loader', async () => {
+    const modules = [
+      { default: withNamespace('post', {
+        create: async () => 'created',
+        delete: async () => 'deleted'
+      }) },
+      { default: () => withNamespace('admin', {
+        impersonate: async () => 'impersonated'
+      }) }
+    ];
+    // Patch loader to use our modules (simulate file loading)
+    const context = { ...mockContext };
+    // Simulate loader's transform step
+    context.actions = extractActions(modules, context);
+    expect(context.actions.post.create).toBeInstanceOf(Function);
+    expect(context.actions.admin.impersonate).toBeInstanceOf(Function);
+    await expect(context.actions.post.create()).resolves.toBe('created');
+    await expect(context.actions.admin.impersonate()).resolves.toBe('impersonated');
+  });
+
+  // Edge cases for coverage
+  it('ignores actions missing namespace', async () => {
+    const modules = [
+      { default: [
+        { name: 'noNamespace', method: async () => 'fail' },
+        { namespace: 'post', name: 'create', method: async () => 'ok' }
+      ] }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create).toBeDefined();
+    expect(registry.noNamespace).toBeUndefined();
+  });
+
+  it('ignores actions missing name', async () => {
+    const modules = [
+      { default: [
+        { namespace: 'post', method: async () => 'fail' },
+        { namespace: 'post', name: 'create', method: async () => 'ok' }
+      ] }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create).toBeDefined();
+    expect(Object.keys(registry.post)).toEqual(['create']);
+  });
+
+  it('ignores actions missing method', async () => {
+    const modules = [
+      { default: [
+        { namespace: 'post', name: 'noMethod' },
+        { namespace: 'post', name: 'create', method: async () => 'ok' }
+      ] }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create).toBeDefined();
+    expect(registry.post.noMethod).toBeUndefined();
+  });
+
+  it('ignores actions where method is not a function', async () => {
+    const modules = [
+      { default: [
+        { namespace: 'post', name: 'bad', method: 123 },
+        { namespace: 'post', name: 'create', method: async () => 'ok' }
+      ] }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create).toBeDefined();
+    expect(registry.post.bad).toBeUndefined();
+  });
+
+  it('handles empty modules array', async () => {
     const modules = [];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions).toEqual({});
-    expect(mockLogger.warn).not.toHaveBeenCalled();
+    const registry = extractActions(modules, mockContext);
+    expect(registry).toEqual({});
   });
 
-  it('handles import errors gracefully (failure path)', async () => {
-    const ctx = baseContext();
-    // Simulate a module that throws on access
-    const errorModule = new Proxy({}, {
-      get() { throw new Error('fail'); }
-    });
-    const modules = [errorModule];
-    const result = await actionLoader(ctx, modules);
-    expect(result.context.actions).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+  it('handles module with no default export', async () => {
+    const modules = [{ notDefault: true }];
+    const registry = extractActions(modules, mockContext);
+    expect(registry).toEqual({});
+  });
+
+  it('loads legacy object-by-namespace with meta/options', async () => {
+    const modules = [
+      { default: {
+        post: {
+          create: {
+            method: async () => 'created',
+            meta: { legacy: true },
+            options: { legacy: true }
+          }
+        }
+      } }
+    ];
+    const registry = extractActions(modules, mockContext);
+    expect(registry.post.create.meta).toEqual({ legacy: true });
+    expect(registry.post.create.options).toEqual({ legacy: true });
+    await expect(registry.post.create()).resolves.toBe('created');
+  });
+});
+
+describe('validateActionModule', () => {
+  it('returns true for valid function default', () => {
+    const mod = { default: () => [{ namespace: 'post', name: 'create', method: () => {} }] };
+    expect(validateActionModule('action', mod)).toBe(true);
+  });
+  it('returns true for valid array default', () => {
+    const mod = { default: [{ namespace: 'post', name: 'create', method: () => {} }] };
+    expect(validateActionModule('action', mod)).toBe(true);
+  });
+  it('returns true for valid object default (legacy)', () => {
+    const mod = { default: { post: { create: () => {} } } };
+    expect(validateActionModule('action', mod)).toBe(true);
+  });
+  it('returns false for invalid default (no actions)', () => {
+    const mod = { default: null };
+    expect(validateActionModule('action', mod)).toBe(false);
+  });
+  it('returns false for missing namespace', () => {
+    const mod = { default: [{ name: 'create', method: () => {} }] };
+    expect(validateActionModule('action', mod)).toBe(false);
+  });
+  it('returns false for missing name', () => {
+    const mod = { default: [{ namespace: 'post', method: () => {} }] };
+    expect(validateActionModule('action', mod)).toBe(false);
+  });
+  it('returns false for missing method', () => {
+    const mod = { default: [{ namespace: 'post', name: 'create' }] };
+    expect(validateActionModule('action', mod)).toBe(false);
+  });
+  it('returns false for method not a function', () => {
+    const mod = { default: [{ namespace: 'post', name: 'create', method: 123 }] };
+    expect(validateActionModule('action', mod)).toBe(false);
+  });
+  it('returns true for empty array (no actions, but valid shape)', () => {
+    const mod = { default: [] };
+    expect(validateActionModule('action', mod)).toBe(true);
+  });
+  it('returns true for empty object (no actions, but valid shape)', () => {
+    const mod = { default: {} };
+    expect(validateActionModule('action', mod)).toBe(true);
   });
 }); 

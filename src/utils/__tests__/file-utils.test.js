@@ -26,10 +26,10 @@ jest.mock('fs/promises', () => ({
   watch: (...args) => mockWatch(...args)
 }));
 
-// Mock glob
-const mockGlobSync = jest.fn();
-jest.mock('glob', () => ({
-  sync: (...args) => mockGlobSync(...args)
+// Mock fast-glob
+const mockFgSync = jest.fn();
+jest.mock('fast-glob', () => ({
+  sync: (...args) => mockFgSync(...args)
 }));
 
 describe('findFiles', () => {
@@ -38,7 +38,7 @@ describe('findFiles', () => {
   });
 
   it('returns an array of files (happy path)', async () => {
-    mockGlobSync.mockImplementation((pattern, options) => {
+    mockFgSync.mockImplementation((pattern, options) => {
       if (pattern === '*.js' && options.absolute === true) {
         return ['a.js', 'b.js'];
       }
@@ -46,11 +46,11 @@ describe('findFiles', () => {
     });
     const files = fileUtils.findFiles(['*.js']);
     expect(files).toEqual(['a.js', 'b.js']);
-    expect(mockGlobSync).toHaveBeenCalledWith('*.js', { absolute: true });
+    expect(mockFgSync).toHaveBeenCalledWith('*.js', { absolute: true });
   });
 
   it('returns empty array if no files found (edge case)', async () => {
-    mockGlobSync.mockImplementation(() => []);
+    mockFgSync.mockImplementation(() => []);
     const files = fileUtils.findFiles(['nonexistentpattern']);
     expect(files).toEqual([]);
   });
@@ -72,12 +72,12 @@ describe('findFiles', () => {
   });
 
   it('returns empty array if patterns contains only patterns with no matches', () => {
-    mockGlobSync.mockImplementation(() => []);
+    mockFgSync.mockImplementation(() => []);
     expect(fileUtils.findFiles(['no-match'])).toEqual([]);
   });
 
   it('removes duplicate matches', () => {
-    mockGlobSync.mockImplementation(() => ['a.js', 'a.js', 'b.js']);
+    mockFgSync.mockImplementation(() => ['a.js', 'a.js', 'b.js']);
     const files = fileUtils.findFiles(['*.js']);
     expect(files).toEqual(['a.js', 'b.js']);
   });

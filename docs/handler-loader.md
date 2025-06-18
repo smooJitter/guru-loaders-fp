@@ -90,7 +90,7 @@ export default {
 ## 🧪 Testing
 - See `src/loaders/handler-loader/__tests__` for comprehensive unit and integration tests.
 - All supported patterns and edge cases are covered.
-- To add new tests, mirror the structure in `action-loader-2` tests.
+- To add new tests, mirror the structure in `action-loader` tests.
 
 ---
 
@@ -104,6 +104,6 @@ const result = await context.handlers.post.create({ foo: 'bar' });
 ---
 
 ## 📝 See Also
-- [action-loader-2.md](./action-loader-2.md)
+- [action-loader.md](./action-loader.md)
 - [withNamespace utility](../utils/withNamespace.js)
 - [GLOBAL_RULES.md] for architectural standards 

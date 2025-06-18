@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">42.85% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -124,19 +124,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">96x</span>
-<span class="cline-any cline-yes">96x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -146,19 +145,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
@@ -177,12 +177,12 @@ export const errorHandlingHook = async (fn, context, ...args) =&gt; {
   try {
     return await fn(...args);
   } catch (error) {
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (context?.services?.logger?.error) {
-<span class="cstat-no" title="statement not covered" >      context.services.logger.error('Error occurred:', error);</span>
+    if (context?.services?.logger?.error) {
+      context.services.logger.error('Error occurred:', error);
     } else if (context?.logger?.error) {
       context.logger.error('Error occurred:', error);
-    } else <span class="missing-if-branch" title="else path not taken" >E</span>{
-<span class="cstat-no" title="statement not covered" >      console.error('Error occurred:', error);</span>
+    } else {
+      console.error('Error occurred:', error);
     }
     throw error;
   }
@@ -195,16 +195,16 @@ export const errorHandlingHook = async (fn, context, ...args) =&gt; {
  * @param {Function} [options.onError] - Optional error handler (async).
  * @returns {Function} Wrapped async function.
  */
-export const withErrorHandling = (fn, options = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> =&gt; {
+export const withErrorHandling = (fn, options = {}) =&gt; {
   return async (...args) =&gt; {
     try {
       return await fn(...args);
     } catch (error) {
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (options.onError) {
+      if (options.onError) {
         try {
           await options.onError(error);
         } catch (hookErr) {
-<span class="cstat-no" title="statement not covered" >          console.error('onError hook failed', hookErr);</span>
+          console.error('onError hook failed', hookErr);
         }
       }
       throw error;
@@ -217,7 +217,7 @@ export const withErrorHandling = (fn, options = <span class="branch-0 cbranch-no
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-13T21:24:44.547Z
+                at 2025-06-17T07:54:21.519Z
             </div>
         <script src="../prettify.js"></script>
         <script>

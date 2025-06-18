@@ -1,21 +1,11 @@
 export default {
   testEnvironment: 'node',
-  transform: {
-    '^.+\\.js$': [
-      'babel-jest',
-      {
-        presets: [
-          ['@babel/preset-env', { targets: { node: 'current' }, modules: false }]
-        ],
-        plugins: ['@babel/plugin-transform-modules-commonjs']
-      }
-    ]
-  },
-  transformIgnorePatterns: [
-    'node_modules/(?!(module-to-transform)/)'
-  ],
+  transform: {},
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^\.\./file-utils-new\.js$': '<rootDir>/src/utils/file-utils-new.js',
+    '^\.\./async-pipeline-utils\.js$': '<rootDir>/src/utils/async-pipeline-utils.js',
+    '^\.\./async-collection-utils\.js$': '<rootDir>/src/utils/async-collection-utils.js',
   },
   coverageThreshold: {
     global: {
@@ -35,9 +25,8 @@ export default {
     customExportConditions: ['node', 'node-addons']
   },
   testRunner: 'jest-circus/runner',
-  moduleDirectories: ['node_modules', '<rootDir>'],
+  moduleDirectories: ['node_modules', 'src', '<rootDir>'],
   roots: ['<rootDir>'],
-  modulePaths: ['<rootDir>'],
-  resolver: undefined,
-  testEnvironment: 'jest-environment-node'
+  modulePaths: ['<rootDir>', '<rootDir>/src'],
+  resolver: undefined
 }; 

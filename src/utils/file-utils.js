@@ -1,13 +1,13 @@
 import path from 'path';
 import fs from 'fs/promises';
-import glob from 'glob';
+import fg from 'fast-glob';
 import * as R from 'ramda';
 
 // Find files matching patterns
 export const findFiles = (patterns) => {
   if (!Array.isArray(patterns)) return [];
   const files = patterns.flatMap(pattern => 
-    glob.sync(pattern, { absolute: true })
+    fg.sync(pattern, { absolute: true })
   );
   return R.uniq(files);
 };

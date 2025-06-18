@@ -1,5 +1,5 @@
 import { createModelLoader } from '../../loaders/model-loader.js';
-import { createActionLoader2 } from '../../loaders/action-loader-2/index.js';
+import { createActionLoader } from '../../loaders/action-loader/index.js';
 
 // Mock Mongoose model
 const mockUserModel = { modelName: 'User', schema: {}, find: jest.fn() };
@@ -51,7 +51,7 @@ describe('Loader contract: context population', () => {
 
   it('should populate context.actions with expected actions', async () => {
     const context = { logger: console, services: { logger: console } };
-    const loader = createActionLoader2({
+    const loader = createActionLoader({
       findFiles: mockFindFilesActions,
       importModule: mockImportModuleActions,
     });

@@ -84,7 +84,7 @@ describe('createLoader', () => {
     });
     const result = await loader({});
     // Only 'bar' is valid, so only it should be present
-    expect(result.test).toEqual({ bar: { value: 2 } });
+    expect(result.test).toEqual({ bar: { name: 'bar', value: 2 } });
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
 

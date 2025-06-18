@@ -14,6 +14,24 @@ const mockLogger = {
   debug: jest.fn()
 };
 
+// Mock file utilities
+const mockFileUtils = {
+  findFiles: jest.fn(),
+  importAndApply: jest.fn(),
+  watchFiles: jest.fn().mockImplementation(() => () => {}),
+};
+
+// Mock async pipeline utilities
+const mockAsyncPipelineUtils = {
+  pipeAsync: jest.fn().mockImplementation((...fns) => async (x) => {
+    let result = x;
+    for (const fn of fns) {
+      result = await fn(result);
+    }
+    return result;
+  })
+};
+
 // Setup common mocks
 const mockMongoose = {
   Schema: jest.fn(),
@@ -34,6 +52,14 @@ jest.unstable_mockModule('./src/utils/loader-logger.js', () => ({
   getLoaderLogger: () => mockLogger
 }));
 
+// Mock file-utils-new.js using alias
+jest.unstable_mockModule('@/utils/file-utils-new.js', () => mockFileUtils);
+
+// Mock async-pipeline-utils.js using alias
+jest.unstable_mockModule('@/utils/async-pipeline-utils.js', () => mockAsyncPipelineUtils);
+
 // Export mocks for use in tests
-export { mockMongoose };
-export { mockLogger }; 
+globalThis.mockMongoose = mockMongoose;
+globalThis.mockLogger = mockLogger;
+globalThis.mockFileUtils = mockFileUtils;
+globalThis.mockAsyncPipelineUtils = mockAsyncPipelineUtils; 

@@ -2,7 +2,7 @@ import { envLoader } from './env-loader.js';
 import { dbLoader } from './db-loader.js';
 import { modelLoader } from './model-loader.js';
 import { typeLoader } from './type-loader.js';
-import actionLoader from './action-loader-2/index.js';
+import actionLoader from './action-loader/index.js';
 import { methodLoader } from './method-loader.js';
 import { serviceLoader } from './service-loader.js';
 import { resolverLoader } from './resolver-loader.js';
@@ -16,8 +16,8 @@ import { serviceLoader as pluginLoader } from './plugin-loader.js';
 import dataLoader from './data-loader/data-loader.js';
 import { pubsubLoader } from './pubsub-loader.js';
 import { authLoader } from './auth-loader.js';
-import { populateTypeComposers } from './type-composer-loader-2/populateTypeComposers.js';
-import typeComposerLoader2 from './type-composer-loader-2/index.js';
+import { populateTypeComposers } from './type-composer-loader/populateTypeComposers.js';
+import typeComposerLoader from './type-composer-loader/index.js';
 import handlerLoader from './handler-loader/index.js';
 import featureLoader from './feature-loader/feature-loader.js';
 
@@ -44,7 +44,7 @@ export const loaders = {
   sdl: sdlLoader,
   service: serviceLoader,
   type: typeLoader,
-  typeComposerLoader2
+  typeComposerLoader
 };
 
 // Individual exports
@@ -70,7 +70,7 @@ export {
   sdlLoader,
   serviceLoader,
   typeLoader,
-  typeComposerLoader2
+  typeComposerLoader
 };
 
 // See src/createLoader for advanced composition patterns (pipeline, phased, selective, etc.) 

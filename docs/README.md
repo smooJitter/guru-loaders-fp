@@ -97,7 +97,7 @@ context = await runSelectedLoaders(context, loaders, ['env', 'model', 'action'])
 ## 📖 See Also
 
 - [type-loader.md](./type-loader.md): Exposing your loader context as a GraphQL API.
-- [action-loader-2.md](./action-loader-2.md): Modern action loader patterns.
+- [action-loader.md](./action-loader.md): Modern action loader patterns.
 - [feature-loader.md](./feature-loader.md): Feature-based modular loading.
 - [docs/index.md](./index.md): Documentation index and coverage standards.
 

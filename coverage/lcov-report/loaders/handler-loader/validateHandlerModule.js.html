@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.66% </span>
+                <span class="strong">86.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/15</span>
+                <span class='fraction'>13/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>12/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.66% </span>
+                <span class="strong">86.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/15</span>
+                <span class='fraction'>13/15</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -93,53 +93,53 @@
 <a name='L28'></a><a href='#L28'>28</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Validation utility for handler-loader modules
-export const validateHandlerModule = <span class="fstat-no" title="function not covered" >(t</span>ype, mod) =&gt; {
+export const validateHandlerModule = (type, mod) =&gt; {
   let handlersArr;
-<span class="cstat-no" title="statement not covered" >  if (typeof mod.default === 'function') {</span>
-<span class="cstat-no" title="statement not covered" >    handlersArr = mod.default({}); </span>// Validate shape, not logic
-  } else <span class="cstat-no" title="statement not covered" >if (Array.isArray(mod.default)) {</span>
-<span class="cstat-no" title="statement not covered" >    handlersArr = mod.default;</span>
-  } else <span class="cstat-no" title="statement not covered" >if (mod.default &amp;&amp; typeof mod.default === 'object') {</span>
-<span class="cstat-no" title="statement not covered" >    handlersArr = Object.entries(mod.default).flatMap(<span class="fstat-no" title="function not covered" >([</span>ns, handlers]) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >      Object.entries(handlers).map(<span class="fstat-no" title="function not covered" >([</span>name, methodOrObj]) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        if (typeof methodOrObj === 'function') {</span>
+  if (typeof mod.default === 'function') {
+    handlersArr = mod.default({}); // Validate shape, not logic
+  } else if (Array.isArray(mod.default)) {
+    handlersArr = mod.default;
+  } else if (mod.default &amp;&amp; typeof mod.default === 'object') {
+    handlersArr = Object.entries(mod.default).flatMap(([ns, handlers]) =&gt;
+      Object.entries(handlers).map(([name, methodOrObj]) =&gt; {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof methodOrObj === 'function') {
 <span class="cstat-no" title="statement not covered" >          return { namespace: ns, name, method: methodOrObj };</span>
         }
-        const { method, ...rest } = <span class="cstat-no" title="statement not covered" >methodOrObj;</span>
-<span class="cstat-no" title="statement not covered" >        return { namespace: ns, name, method, ...rest };</span>
+        const { method, ...rest } = methodOrObj;
+        return { namespace: ns, name, method, ...rest };
       })
     );
-  } else {
+  } else <span class="missing-if-branch" title="else path not taken" >E</span>{
 <span class="cstat-no" title="statement not covered" >    return false;</span>
   }
-<span class="cstat-no" title="statement not covered" >  return handlersArr.every(</span>
-<span class="fstat-no" title="function not covered" >    (h</span>andler) =&gt;
-<span class="cstat-no" title="statement not covered" >      handler &amp;&amp;</span>
+  return handlersArr.every(
+    (handler) =&gt;
+      handler &amp;&amp;
       typeof handler.namespace === 'string' &amp;&amp;
       typeof handler.name === 'string' &amp;&amp;
       typeof handler.method === 'function'
@@ -151,7 +151,7 @@ export const validateHandlerModule = <span class="fstat-no" title="function not 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-13T21:24:44.547Z
+                at 2025-06-17T04:12:08.460Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

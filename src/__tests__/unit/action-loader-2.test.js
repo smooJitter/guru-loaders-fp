@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { createActionLoader2, actionLoader2 } from '../../loaders/action-loader-2/index.js';
+import { createActionLoader, actionLoader } from '../../loaders/action-loader/index.js';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
@@ -23,7 +23,7 @@ const baseContext = () => ({
   config: {}
 });
 
-describe('action-loader-2', () => {
+describe('action-loader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFindFiles.mockReset();
@@ -42,7 +42,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: userActions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -81,7 +81,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: postActions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -112,7 +112,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: adminActions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -137,7 +137,7 @@ describe('action-loader-2', () => {
       mockFindFiles.mockResolvedValue([]);
       
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -162,7 +162,7 @@ describe('action-loader-2', () => {
         .mockResolvedValueOnce({ default: 'not a valid module' });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -187,7 +187,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: actions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -216,7 +216,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: actions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -237,7 +237,7 @@ describe('action-loader-2', () => {
       mockFindFiles.mockRejectedValue(error);
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule,
         logger: mockLogger
@@ -259,7 +259,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockRejectedValue(error);
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule,
         logger: mockLogger
@@ -290,7 +290,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: invalidActions });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -315,7 +315,7 @@ describe('action-loader-2', () => {
       mockImportModule.mockResolvedValue({ default: [errorAction] });
 
       const context = baseContext();
-      const loader = createActionLoader2({
+      const loader = createActionLoader({
         findFiles: mockFindFiles,
         importModule: mockImportModule
       });
@@ -330,7 +330,7 @@ describe('action-loader-2', () => {
   });
 
   describe('Convenience API', () => {
-    it('actionLoader2 provides a simplified interface', async () => {
+    it('actionLoader provides a simplified interface', async () => {
       // Setup
       const actions = withNamespace('test', {
         action: () => 'result'
@@ -347,7 +347,7 @@ describe('action-loader-2', () => {
       };
 
       // Execute
-      const result = await actionLoader2(context);
+      const result = await actionLoader(context);
 
       // Verify
       expect(result.actions).toBeDefined();

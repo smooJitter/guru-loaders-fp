@@ -17,22 +17,25 @@ const MODEL_PATTERNS = [
  */
 function extractAndRegisterModel(mod, ctx) {
   const mongooseConnection = ctx?.mongooseConnection || mongoose;
+  const logger = ctx?.services?.logger || console;
   let model;
   // Track registered model names for cleanup
-  let registeredNames = ctx._registeredModelNames || new Set();
+  ctx._registeredModelNames = ctx._registeredModelNames || new Set();
+  
   try {
     // Direct model export
     if (mod.default && mod.default.modelName && mod.default.schema) {
-      if (mongooseConnection.models[mod.default.modelName]) {
-        ctx.services?.logger?.warn?.(
+      const modelName = mod.default.modelName;
+      if (mongooseConnection.models[modelName]) {
+        logger.warn?.(
           '[model-loader]',
-          `Duplicate model name: ${mod.default.modelName} (using existing)`
+          `Duplicate model name: ${modelName} (using existing)`
         );
-        model = mongooseConnection.models[mod.default.modelName];
+        model = mongooseConnection.models[modelName];
       } else {
-        model = mod.default;
+        model = mongooseConnection.model(modelName, mod.default.schema);
       }
-      registeredNames.add(mod.default.modelName);
+      ctx._registeredModelNames.add(modelName);
     }
     // Factory export
     else if (typeof mod.default === 'function') {
@@ -40,37 +43,38 @@ function extractAndRegisterModel(mod, ctx) {
       let maybeModel;
       try {
         maybeModel = mod.default({ mongooseConnection, ...ctx });
-      } catch (err) {
-        ctx.services?.logger?.warn?.('[model-loader]', `Error loading model: ${err.message}`);
-        return undefined;
-      }
-      if (maybeModel && maybeModel.modelName && maybeModel.schema) {
-        const wasAlreadyRegistered = beforeKeys.has(maybeModel.modelName);
-        if (wasAlreadyRegistered) {
-          ctx.services?.logger?.warn?.(
+        if (!maybeModel || !maybeModel.modelName || !maybeModel.schema) {
+          logger.warn?.('[model-loader]', 'Factory returned invalid model');
+          return undefined;
+        }
+        if (beforeKeys.has(maybeModel.modelName)) {
+          logger.warn?.(
             '[model-loader]',
             `Duplicate model name: ${maybeModel.modelName} (using existing)`
           );
           model = mongooseConnection.models[maybeModel.modelName];
         } else {
-          model = maybeModel;
+          model = mongooseConnection.model(maybeModel.modelName, maybeModel.schema);
         }
-        registeredNames.add(maybeModel.modelName);
-      } else {
+        ctx._registeredModelNames.add(maybeModel.modelName);
+      } catch (err) {
+        logger.warn?.('[model-loader]', `Error in model factory: ${err.message}`);
         return undefined;
       }
     }
     // Invalid export
     else {
+      logger.warn?.('[model-loader]', 'Invalid module export format');
       return undefined;
     }
-    if (model && model.modelName && model.schema) {
-      ctx._registeredModelNames = registeredNames;
+    
+    if (model && model.modelName && typeof model.findById === 'function') {
       return model;
     }
+    logger.warn?.('[model-loader]', 'Model validation failed');
     return undefined;
   } catch (err) {
-    ctx.services?.logger?.error?.('[model-loader]', `Error loading model: ${err.message}`);
+    logger.error?.('[model-loader]', `Error loading model: ${err.message}`);
     return undefined;
   }
 }
@@ -94,11 +98,15 @@ function isValidMongooseModel(type, model) {
  */
 function buildMongooseRegistry(modules, ctx) {
   const mongooseConnection = ctx?.mongooseConnection || mongoose;
+  const logger = ctx?.services?.logger || console;
   const loadedNames = modules.filter(Boolean).map(m => m.modelName);
   const registry = {};
+  
   for (const name of loadedNames) {
     if (mongooseConnection.models[name]) {
       registry[name] = mongooseConnection.models[name];
+    } else {
+      logger.warn?.('[model-loader]', `Model ${name} not found in mongoose connection`);
     }
   }
   return registry;
