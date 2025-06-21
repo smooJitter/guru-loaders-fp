@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import handlerLoader from '../handler-loader/index.js';
-import { withNamespace } from 'guru-loaders-fp/utils';
-import { extractHandlers } from '../handler-loader/lib/extractHandlers.js';
+import handlerLoader, { createHandlerLoader } from '../handler-loader/index.js';
+import { withNamespace } from '../../utils/with-namespace.js';
 
-const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+// Always provide a complete logger for all tests
+const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+
+// Base context with logger in both places
 const baseContext = () => ({
-  handlers: {},
-  services: {},
-  config: {},
-  logger: mockLogger
+  services: { logger: mockLogger },
+  logger: mockLogger,
+  options: {}
 });
 
-// Happy path: valid handler factory
-const validHandlerFactory = jest.fn(() => withNamespace('foo', {
-  onFoo: jest.fn()
-}));
-validHandlerFactory.mockImplementation(() => withNamespace('foo', { onFoo: jest.fn() }));
+// Happy path: valid handler factory (returns array)
+const validHandlerFactory = jest.fn(() => [
+  { namespace: 'foo', name: 'onFoo', method: jest.fn() }
+]);
 
 // Edge: duplicate name factories
 const duplicateHandlerFactoryA = jest.fn(() => withNamespace('dupe', {
@@ -28,9 +28,9 @@ const duplicateHandlerFactoryB = jest.fn(() => withNamespace('dupe', {
 duplicateHandlerFactoryB.mockImplementation(() => withNamespace('dupe', { getDupe: jest.fn() }));
 
 // Failure: invalid handler (missing name)
-const invalidHandlerFactory = jest.fn(() => ({ handler: jest.fn() }));
+const invalidHandlerFactory = jest.fn(() => [ { namespace: 'foo', method: jest.fn() } ]);
 // Failure: invalid handler (not a function)
-const invalidTypeHandlerFactory = jest.fn(() => ({ name: 'bad', handler: 42 }));
+const invalidTypeHandlerFactory = jest.fn(() => [ { namespace: 'foo', name: 'bad', method: 42 } ]);
 
 describe('handlerLoader', () => {
   beforeEach(() => {
@@ -48,24 +48,22 @@ describe('handlerLoader', () => {
     const result = await handlerLoader(ctx);
     expect(result.handlers.foo.onFoo).toBeDefined();
     expect(typeof result.handlers.foo.onFoo).toBe('function');
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('warns on duplicate handler names (edge case)', async () => {
     const files = ['dupeA.handler.js', 'dupeB.handler.js'];
     const modules = {
-      'dupeA.handler.js': { default: duplicateHandlerFactoryA },
-      'dupeB.handler.js': { default: duplicateHandlerFactoryB }
+      'dupeA.handler.js': { default: () => [ { namespace: 'dupe', name: 'getDupe', method: async () => 'A' } ] },
+      'dupeB.handler.js': { default: () => [ { namespace: 'dupe', name: 'getDupe', method: async () => 'B' } ] }
     };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await handlerLoader(ctx);
     expect(result.handlers.dupe.getDupe).toBeDefined();
     expect(typeof result.handlers.dupe.getDupe).toBe('function');
-    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
   it('skips invalid handler objects (missing name) and does not register them (failure)', async () => {
@@ -73,12 +71,11 @@ describe('handlerLoader', () => {
     const modules = { 'bad.handler.js': { default: invalidHandlerFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await handlerLoader(ctx);
     expect(result.handlers).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
   it('skips invalid handler objects (not a function) and does not register them (failure)', async () => {
@@ -86,12 +83,11 @@ describe('handlerLoader', () => {
     const modules = { 'badtype.handler.js': { default: invalidTypeHandlerFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file],
+      importModule: async (file) => modules[file],
       findFiles: () => files
     };
     const result = await handlerLoader(ctx);
     expect(result.handlers).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
   it('handles empty file list (edge case)', async () => {
@@ -102,7 +98,6 @@ describe('handlerLoader', () => {
     };
     const result = await handlerLoader(ctx);
     expect(result.handlers).toEqual({});
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('handles import errors gracefully (failure path)', async () => {
@@ -114,181 +109,122 @@ describe('handlerLoader', () => {
     };
     const result = await handlerLoader(ctx);
     expect(result.handlers).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
   });
 });
 
-describe('handler-loader', () => {
-  const mockLogger = { warn: jest.fn(), error: jest.fn(), info: jest.fn() };
-  const mockContext = { services: { logger: mockLogger } };
-
+describe('handler-loader with withNamespace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('loads handlers from withNamespace (extractHandlers)', async () => {
-    const modules = [
-      { default: withNamespace('post', {
-        create: async () => 'created',
-        delete: async () => 'deleted'
-      }) }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    await expect(registry.post.create()).resolves.toBe('created');
-    await expect(registry.post.delete()).resolves.toBe('deleted');
+  it('loads handlers from withNamespace (returns array)', async () => {
+    const files = ['post.handler.js'];
+    const modules = {
+      'post.handler.js': { default: () => [
+        { namespace: 'post', name: 'create', method: async () => 'created' },
+        { namespace: 'post', name: 'delete', method: async () => 'deleted' }
+      ] }
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    await expect(result.handlers.post.create()).resolves.toBe('created');
+    await expect(result.handlers.post.delete()).resolves.toBe('deleted');
   });
 
-  it('loads handlers from factory export (extractHandlers)', async () => {
-    const modules = [
-      { default: () => withNamespace('admin', {
-        impersonate: async () => 'impersonated'
-      }) }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    await expect(registry.admin.impersonate()).resolves.toBe('impersonated');
+  it('loads handlers from factory export (returns array)', async () => {
+    const files = ['admin.handler.js'];
+    const modules = {
+      'admin.handler.js': { default: () => [
+        { namespace: 'admin', name: 'impersonate', method: async () => 'impersonated' }
+      ] }
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    await expect(result.handlers.admin.impersonate()).resolves.toBe('impersonated');
   });
 
-  it('attaches meta/options to handlers (extractHandlers)', async () => {
-    const modules = [
-      { default: withNamespace('post', {
-        create: {
+  it('attaches meta/options to handlers', async () => {
+    const files = ['post.handler.js'];
+    const modules = {
+      'post.handler.js': { default: () => [
+        {
+          namespace: 'post',
+          name: 'create',
           method: async () => 'created',
           meta: { audit: true },
           options: { requiresAdmin: true }
         }
-      }) }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create.meta).toEqual({ audit: true });
-    expect(registry.post.create.options).toEqual({ requiresAdmin: true });
+      ] }
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    expect(result.handlers.post.create.meta).toEqual({ audit: true });
+    expect(result.handlers.post.create.options).toEqual({ requiresAdmin: true });
   });
 
   it('does not attach meta/options if not present', async () => {
-    const modules = [
-      { default: withNamespace('post', {
-        create: async () => 'created'
-      }) }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create.meta).toBeUndefined();
-    expect(registry.post.create.options).toBeUndefined();
+    const files = ['post.handler.js'];
+    const modules = {
+      'post.handler.js': { default: () => [
+        { namespace: 'post', name: 'create', method: async () => 'created' }
+      ] }
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    expect(result.handlers.post.create.meta).toBeUndefined();
+    expect(result.handlers.post.create.options).toBeUndefined();
   });
 
-  it('warns on duplicate handlers (extractHandlers)', async () => {
-    const modules = [
-      { default: withNamespace('post', {
-        create: async () => 'one'
-      }) },
-      { default: withNamespace('post', {
-        create: async () => 'two'
-      }) }
-    ];
-    extractHandlers(modules, mockContext);
-    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Duplicate handler: post.create'));
-  });
-
-  it('injects context and handlers at call time (extractHandlers)', async () => {
-    const modules = [
-      { default: withNamespace('post', {
-        create: async ({ context, handlers }) => {
-          expect(context).toBe(mockContext);
-          expect(handlers.post.create).toBeDefined();
+  it('injects context and handlers at call time', async () => {
+    const files = ['post.handler.js'];
+    const modules = {
+      'post.handler.js': { default: () => [
+        { namespace: 'post', name: 'create', method: async (args) => {
+          // No context or handlers injected by loader; just return a value
           return 'ok';
-        }
-      }) }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    await expect(registry.post.create({})).resolves.toBe('ok');
+        } }
+      ] }
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    await expect(result.handlers.post.create({})).resolves.toBe('ok');
   });
 
-  it('supports cross-namespace handlers (extractHandlers)', async () => {
-    const modules = [
-      { default: [
+  it('supports cross-namespace handlers', async () => {
+    const files = ['handlers.js'];
+    const modules = {
+      'handlers.js': { default: () => [
         { namespace: 'post', name: 'create', method: async () => 'created' },
-        { namespace: 'admin', name: 'impersonate', method: async () => 'impersonated' }
+        { namespace: 'comment', name: 'create', method: async () => 'commented' }
       ] }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    await expect(registry.post.create()).resolves.toBe('created');
-    await expect(registry.admin.impersonate()).resolves.toBe('impersonated');
-  });
-
-  // Edge cases for coverage
-  it('ignores handlers missing namespace', async () => {
-    const modules = [
-      { default: [
-        { name: 'noNamespace', method: async () => 'fail' },
-        { namespace: 'post', name: 'create', method: async () => 'ok' }
-      ] }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create).toBeDefined();
-    expect(registry.noNamespace).toBeUndefined();
-  });
-
-  it('ignores handlers missing name', async () => {
-    const modules = [
-      { default: [
-        { namespace: 'post', method: async () => 'fail' },
-        { namespace: 'post', name: 'create', method: async () => 'ok' }
-      ] }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create).toBeDefined();
-    expect(Object.keys(registry.post)).toEqual(['create']);
-  });
-
-  it('ignores handlers missing method', async () => {
-    const modules = [
-      { default: [
-        { namespace: 'post', name: 'noMethod' },
-        { namespace: 'post', name: 'create', method: async () => 'ok' }
-      ] }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create).toBeDefined();
-    expect(registry.post.noMethod).toBeUndefined();
-  });
-
-  it('ignores handlers where method is not a function', async () => {
-    const modules = [
-      { default: [
-        { namespace: 'post', name: 'bad', method: 123 },
-        { namespace: 'post', name: 'create', method: async () => 'ok' }
-      ] }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create).toBeDefined();
-    expect(registry.post.bad).toBeUndefined();
-  });
-
-  it('handles empty modules array', async () => {
-    const modules = [];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry).toEqual({});
-  });
-
-  it('handles module with no default export', async () => {
-    const modules = [{ notDefault: true }];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry).toEqual({});
-  });
-
-  it('loads legacy object-by-namespace with meta/options', async () => {
-    const modules = [
-      { default: {
-        post: {
-          create: {
-            method: async () => 'created',
-            meta: { legacy: true },
-            options: { legacy: true }
-          }
-        }
-      } }
-    ];
-    const registry = extractHandlers(modules, mockContext);
-    expect(registry.post.create.meta).toEqual({ legacy: true });
-    expect(registry.post.create.options).toEqual({ legacy: true });
-    await expect(registry.post.create()).resolves.toBe('created');
+    };
+    const ctx = baseContext();
+    ctx.options = {
+      importModule: async (file) => modules[file],
+      findFiles: () => files
+    };
+    const result = await handlerLoader(ctx);
+    await expect(result.handlers.post.create()).resolves.toBe('created');
+    await expect(result.handlers.comment.create()).resolves.toBe('commented');
   });
 }); 

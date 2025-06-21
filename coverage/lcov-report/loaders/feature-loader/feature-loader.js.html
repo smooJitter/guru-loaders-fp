@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.92% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/26</span>
+                <span class='fraction'>7/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.61% </span>
+                <span class="strong">23.8% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/26</span>
+                <span class='fraction'>5/21</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.92% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/26</span>
+                <span class='fraction'>7/21</span>
             </div>
         
             
@@ -148,14 +148,9 @@
 <a name='L83'></a><a href='#L83'>83</a>
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a>
-<a name='L87'></a><a href='#L87'>87</a>
-<a name='L88'></a><a href='#L88'>88</a>
-<a name='L89'></a><a href='#L89'>89</a>
-<a name='L90'></a><a href='#L90'>90</a>
-<a name='L91'></a><a href='#L91'>91</a>
-<a name='L92'></a><a href='#L92'>92</a>
-<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -217,39 +212,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// src/loaders/featureLoader.js
 &nbsp;
-import { createLoader } from '../../utils/loader-utils.js';
+import { createAsyncLoader } from '../../core/loader-core-new/loader-async.js';
+import { importAndApplyAllFeatures } from './importAndApplyAllFeatures.js';
+import { featureRegistryBuilder } from './featureRegistryBuilder.js';
 import { findFeatureFiles, aggregateFeatureArtifacts } from './discovery.js';
 import { discoverFeatureArtifacts } from './discover-feature-artifacts.js';
 import { validateFeatureContext, injectFeatureContext, runFeatureLifecycle } from './context.js';
@@ -304,40 +292,31 @@ export const validateFeatureModule = <span class="fstat-no" title="function not 
 };
 &nbsp;
 /**
- * Create the feature loader using createLoader and discovery.js utilities
+ * Create the feature loader using createAsyncLoader and discovery.js utilities
  * @param {object} options - Loader options
  * @returns {function} Loader function
  */
-export const createFeatureLoader = (options = {}) =&gt;
-  createLoader('features', {
+export const createFeatureLoader = (options = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> =&gt;
+  createAsyncLoader('features', {
     patterns: options.patterns || FEATURE_PATTERNS,
-    findFiles: options.findFiles || customFindFiles,
-    ...options,
-    transform: options.transform || extractFeatureArtifacts,
-    validate: options.validate || validateFeatureModule,
-<span class="fstat-no" title="function not covered" >    as</span>ync onInit(context) {
-<span class="cstat-no" title="statement not covered" >      validateFeatureContext(context);</span>
-<span class="cstat-no" title="statement not covered" >      injectFeatureContext(context);</span>
-<span class="cstat-no" title="statement not covered" >      await runFeatureLifecycle('beforeAll', context);</span>
-&nbsp;
-      // Merge all feature registries
-      const featureManifests = <span class="cstat-no" title="statement not covered" >context.features || [];</span>
-      const { typeComposersList, queriesList, mutationsList, resolversList } =
-<span class="cstat-no" title="statement not covered" >        mergeFeatureRegistries(context, featureManifests);</span>
-&nbsp;
-      // Report duplicates
-      const logger = <span class="cstat-no" title="statement not covered" >getLoaderLogger(context, options, 'feature-loader');</span>
-<span class="cstat-no" title="statement not covered" >      reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, logger);</span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >      await runFeatureLifecycle('afterAll', context);</span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >      if (!context.typeComposers || typeof context.typeComposers !== 'object') {</span>
-<span class="cstat-no" title="statement not covered" >        context.typeComposers = {};</span>
-      }
-    }
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll || <span class="branch-1 cbranch-no" title="branch not covered" >importAndApplyAllFeatures,</span>
+    registryBuilder: options.registryBuilder || featureRegistryBuilder,
+    ...options
   });
 &nbsp;
-export const featureLoader = createFeatureLoader();
+const featureLoader = <span class="fstat-no" title="function not covered" >as</span>ync (ctx = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> =&gt; {
+<span class="cstat-no" title="statement not covered" >  ctx.features = ctx.features || [];</span>
+  const loader = <span class="cstat-no" title="statement not covered" >createFeatureLoader({</span>
+    findFiles: ctx.findFiles,
+    importAndApplyAll: ctx.importAndApplyAll,
+    registryBuilder: ctx.registryBuilder,
+  });
+  const registries = <span class="cstat-no" title="statement not covered" >await loader(ctx);</span> // registries: { typeComposers, queries, ... }
+<span class="cstat-no" title="statement not covered" >  Object.assign(ctx, registries);</span>
+<span class="cstat-no" title="statement not covered" >  return { context: ctx };</span>
+};
+&nbsp;
 export default featureLoader;
 &nbsp;</pre></td></tr></table></pre>
 
@@ -346,7 +325,7 @@ export default featureLoader;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T07:45:59.733Z
+                at 2025-06-21T06:54:04.440Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

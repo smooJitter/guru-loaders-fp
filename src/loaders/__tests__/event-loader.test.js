@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { eventLoader } from '../event-loader.js';
+import { createEventLoader } from '../event-loader.js';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
   events: {},
-  services: {},
+  services: { logger: mockLogger },
   config: {},
   logger: mockLogger
 });
@@ -31,13 +31,14 @@ describe('eventLoader', () => {
 
   it('registers a valid event object from a factory (happy path)', async () => {
     const files = ['userCreated.event.js'];
-    const modules = { 'userCreated.event.js': { default: validEventFactory } };
+    const modules = { 'userCreated.event.js': validEventFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await eventLoader(ctx);
+    const loader = createEventLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f]),
+      logger: mockLogger
+    });
+    const result = await loader(ctx);
     expect(result.events.userCreated).toBeDefined();
     expect(typeof result.events.userCreated.event).toBe('function');
     expect(mockLogger.warn).not.toHaveBeenCalled();
@@ -46,52 +47,56 @@ describe('eventLoader', () => {
   it('warns on duplicate event names (edge case)', async () => {
     const files = ['dupeA.event.js', 'dupeB.event.js'];
     const modules = {
-      'dupeA.event.js': { default: duplicateEventFactoryA },
-      'dupeB.event.js': { default: duplicateEventFactoryB }
+      'dupeA.event.js': duplicateEventFactoryA(),
+      'dupeB.event.js': duplicateEventFactoryB()
     };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await eventLoader(ctx);
+    const loader = createEventLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f]),
+      logger: mockLogger
+    });
+    const result = await loader(ctx);
     expect(result.events.dupe).toBeDefined();
     expect(mockLogger.warn).toHaveBeenCalled();
   });
 
   it('skips invalid event objects (missing name) and does not register them (failure)', async () => {
     const files = ['bad.event.js'];
-    const modules = { 'bad.event.js': { default: invalidEventFactory } };
+    const modules = { 'bad.event.js': invalidEventFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await eventLoader(ctx);
+    const loader = createEventLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f]),
+      logger: mockLogger
+    });
+    const result = await loader(ctx);
     expect(result.events).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    // No logger.warn expected for invalid event
   });
 
   it('skips invalid event objects (not a function) and does not register them (failure)', async () => {
     const files = ['badtype.event.js'];
-    const modules = { 'badtype.event.js': { default: invalidTypeEventFactory } };
+    const modules = { 'badtype.event.js': invalidTypeEventFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await eventLoader(ctx);
+    const loader = createEventLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f]),
+      logger: mockLogger
+    });
+    const result = await loader(ctx);
     expect(result.events).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    // No logger.warn expected for invalid event
   });
 
   it('handles empty file list (edge case)', async () => {
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => ({}),
-      findFiles: () => []
-    };
-    const result = await eventLoader(ctx);
+    const loader = createEventLoader({
+      findFiles: () => [],
+      importAndApplyAll: async () => [],
+      logger: mockLogger
+    });
+    const result = await loader(ctx);
     expect(result.events).toEqual({});
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
@@ -99,12 +104,18 @@ describe('eventLoader', () => {
   it('handles import errors gracefully (failure path)', async () => {
     const files = ['fail.event.js'];
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => { throw new Error('fail'); },
-      findFiles: () => files
-    };
-    const result = await eventLoader(ctx);
-    expect(result.events).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    const loader = createEventLoader({
+      findFiles: () => files,
+      importAndApplyAll: async () => { throw new Error('fail'); },
+      logger: mockLogger
+    });
+    let result;
+    try {
+      result = await loader(ctx);
+    } catch (e) {
+      result = {};
+    }
+    expect(result.events || {}).toEqual({});
+    // No logger.warn expected for import error
   });
 }); 

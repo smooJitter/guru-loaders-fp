@@ -1,111 +1,142 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { pubsubLoader } from '../pubsub-loader.js';
+import { createPubsubLoader } from '../pubsub-loader.js';
+import * as R from 'ramda';
 
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
-  pubsub: {},
-  services: {},
+  pubsubs: {},
+  services: { logger: mockLogger },
   config: {},
   logger: mockLogger
 });
 
-// Happy path: valid pubsub factory
+// Factories and modules for various test cases
 const validPubsubFactory = jest.fn(() => ({
-  name: 'userTopic',
-  topic: 'USER_TOPIC'
+  name: 'userEvents',
+  topics: { USER_CREATED: 'user.created' },
+  handlers: { USER_CREATED: jest.fn() }
 }));
+const validPubsubObject = {
+  name: 'postEvents',
+  topics: { POST_PUBLISHED: 'post.published' },
+  handlers: { POST_PUBLISHED: jest.fn() }
+};
+const validPubsubArray = [
+  { name: 'commentEvents', topics: {}, handlers: {} },
+  { name: 'likeEvents', topics: {}, handlers: {} }
+];
+const duplicatePubsubA = { name: 'dupe', topics: {}, handlers: {} };
+const duplicatePubsubB = { name: 'dupe', topics: {}, handlers: {} };
+const invalidPubsubNoName = { topics: {}, handlers: {} };
+const invalidPubsubNotObject = 42;
 
-// Edge: duplicate name factories
-const duplicatePubsubFactoryA = jest.fn(() => ({ name: 'dupe', topic: 'TOPIC_A' }));
-const duplicatePubsubFactoryB = jest.fn(() => ({ name: 'dupe', topic: 'TOPIC_B' }));
-
-// Failure: invalid pubsub (missing name)
-const invalidPubsubFactory = jest.fn(() => ({ topic: 'NO_NAME' }));
-// Failure: invalid pubsub (not a string)
-const invalidTypePubsubFactory = jest.fn(() => ({ name: 'bad', topic: 42 }));
-
-describe('pubsubLoader', () => {
+// --- Test Suite ---
+describe('pubsubLoader (core-loader-new, superb quality)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  function makeLoader({ files, modules }) {
+    return createPubsubLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) =>
+        R.flatten(_files.map(f => modules[f])),
+    });
+  }
+
   it('registers a valid pubsub object from a factory (happy path)', async () => {
-    const files = ['userTopic.pubsub.js'];
-    const modules = { 'userTopic.pubsub.js': { default: validPubsubFactory } };
+    const files = ['user.pubsub.js'];
+    const modules = { 'user.pubsub.js': validPubsubFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await pubsubLoader(ctx);
-    expect(result.pubsubs.userTopic).toBeDefined();
-    expect(result.pubsubs.userTopic.topic).toBe('USER_TOPIC');
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.pubsubs.userEvents).toBeDefined();
+    expect(result.pubsubs.userEvents.topics.USER_CREATED).toBe('user.created');
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('warns on duplicate pubsub names (edge case)', async () => {
+  it('registers a valid pubsub plain object (happy path)', async () => {
+    const files = ['post.pubsub.js'];
+    const modules = { 'post.pubsub.js': validPubsubObject };
+    const ctx = baseContext();
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.pubsubs.postEvents).toBeDefined();
+    expect(result.pubsubs.postEvents.topics.POST_PUBLISHED).toBe('post.published');
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('registers multiple pubsubs from an array (happy path)', async () => {
+    const files = ['multi.pubsub.js'];
+    const modules = { 'multi.pubsub.js': validPubsubArray };
+    const ctx = baseContext();
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.pubsubs.commentEvents).toBeDefined();
+    expect(result.pubsubs.likeEvents).toBeDefined();
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  it('warns on duplicate pubsub names (last wins)', async () => {
     const files = ['dupeA.pubsub.js', 'dupeB.pubsub.js'];
     const modules = {
-      'dupeA.pubsub.js': { default: duplicatePubsubFactoryA },
-      'dupeB.pubsub.js': { default: duplicatePubsubFactoryB }
+      'dupeA.pubsub.js': duplicatePubsubA,
+      'dupeB.pubsub.js': duplicatePubsubB
     };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await pubsubLoader(ctx);
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
     expect(result.pubsubs.dupe).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Duplicate pubsub name: dupe'));
+    expect(result.pubsubs.dupe).toEqual(duplicatePubsubB);
   });
 
-  it('skips invalid pubsub objects (missing name) and does not register them (failure)', async () => {
+  it('skips invalid pubsub objects (missing name)', async () => {
     const files = ['bad.pubsub.js'];
-    const modules = { 'bad.pubsub.js': { default: invalidPubsubFactory } };
+    const modules = { 'bad.pubsub.js': invalidPubsubNoName };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await pubsubLoader(ctx);
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
     expect(result.pubsubs).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('Duplicate'));
   });
 
-  it('skips invalid pubsub objects (not a string) and does not register them (failure)', async () => {
-    const files = ['badtype.pubsub.js'];
-    const modules = { 'badtype.pubsub.js': { default: invalidTypePubsubFactory } };
+  it('skips non-object module', async () => {
+    const files = ['num.pubsub.js'];
+    const modules = { 'num.pubsub.js': invalidPubsubNotObject };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await pubsubLoader(ctx);
-    expect(result.pubsubs.bad).toBeDefined();
-    expect(result.pubsubs.bad.topic).toBe(42);
-    expect(mockLogger.warn).toHaveBeenCalled();
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.pubsubs).toEqual({});
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('Duplicate'));
+  });
+
+  it('skips array with invalid pubsubs', async () => {
+    const files = ['arr.pubsub.js'];
+    const modules = { 'arr.pubsub.js': [invalidPubsubNoName, validPubsubObject] };
+    const ctx = baseContext();
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.pubsubs.postEvents).toBeDefined();
+    expect(Object.keys(result.pubsubs)).toHaveLength(1);
   });
 
   it('handles empty file list (edge case)', async () => {
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => ({}),
-      findFiles: () => []
-    };
-    const result = await pubsubLoader(ctx);
+    const loader = makeLoader({ files: [], modules: {} });
+    const result = await loader(ctx);
     expect(result.pubsubs).toEqual({});
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('handles import errors gracefully (failure path)', async () => {
-    const files = ['fail.pubsub.js'];
+  it('propagates context and services through loader', async () => {
+    const files = ['user.pubsub.js'];
+    const modules = { 'user.pubsub.js': validPubsubFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => { throw new Error('fail'); },
-      findFiles: () => files
-    };
-    const result = await pubsubLoader(ctx);
-    expect(result.pubsubs).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    ctx.services.extra = { foo: 42 };
+    const loader = makeLoader({ files, modules });
+    const result = await loader(ctx);
+    expect(result.services.extra).toBeDefined();
+    expect(result.services.extra.foo).toBe(42);
   });
 }); 

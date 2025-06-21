@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">88.88% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/27</span>
+                <span class='fraction'>24/27</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>12/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -105,75 +105,75 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as R from 'ramda';
 // import * as RA from 'ramda-adjunct';
 import { mergeRegistries } from '../../utils/registry-utils.js';
 &nbsp;
-function <span class="fstat-no" title="function not covered" >findDuplicates(</span>lists) {
-<span class="cstat-no" title="statement not covered" >  return R.pipe(</span>
+function findDuplicates(lists) {
+  return R.pipe(
     R.chain(R.keys),
     R.countBy(R.identity),
     R.toPairs,
-    R.filter(<span class="fstat-no" title="function not covered" >([</span>_, count]) =&gt; <span class="cstat-no" title="statement not covered" >count &gt; 1)</span>,
+    R.filter(([_, count]) =&gt; count &gt; 1),
     R.map(R.head)
   )(lists);
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >mergeFeatureRegistries(</span>context, featureManifests) {
-  const typeComposersList = <span class="cstat-no" title="statement not covered" >featureManifests.map(<span class="fstat-no" title="function not covered" >m </span>=&gt; <span class="cstat-no" title="statement not covered" >m.typeComposers || {})</span>;</span>
-  const queriesList = <span class="cstat-no" title="statement not covered" >featureManifests.map(<span class="fstat-no" title="function not covered" >m </span>=&gt; <span class="cstat-no" title="statement not covered" >m.queries || {})</span>;</span>
-  const mutationsList = <span class="cstat-no" title="statement not covered" >featureManifests.map(<span class="fstat-no" title="function not covered" >m </span>=&gt; <span class="cstat-no" title="statement not covered" >m.mutations || {})</span>;</span>
-  const resolversList = <span class="cstat-no" title="statement not covered" >featureManifests.map(<span class="fstat-no" title="function not covered" >m </span>=&gt; <span class="cstat-no" title="statement not covered" >m.resolvers || {})</span>;</span>
+export function mergeFeatureRegistries(context, featureManifests) {
+  const typeComposersList = featureManifests.map(m =&gt; m.typeComposers || <span class="branch-1 cbranch-no" title="branch not covered" >{})</span>;
+  const queriesList = featureManifests.map(m =&gt; m.queries || {});
+  const mutationsList = featureManifests.map(m =&gt; m.mutations || {});
+  const resolversList = featureManifests.map(m =&gt; m.resolvers || {});
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  context.typeComposers = Object.assign({}, context.typeComposers, ...typeComposersList);</span>
-<span class="cstat-no" title="statement not covered" >  context.queries = Object.assign({}, context.queries, ...queriesList);</span>
-<span class="cstat-no" title="statement not covered" >  context.mutations = Object.assign({}, context.mutations, ...mutationsList);</span>
-<span class="cstat-no" title="statement not covered" >  context.resolvers = Object.assign({}, context.resolvers, ...resolversList);</span>
+  context.typeComposers = Object.assign({}, context.typeComposers, ...typeComposersList);
+  context.queries = Object.assign({}, context.queries, ...queriesList);
+  context.mutations = Object.assign({}, context.mutations, ...mutationsList);
+  context.resolvers = Object.assign({}, context.resolvers, ...resolversList);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return { typeComposersList, queriesList, mutationsList, resolversList };</span>
+  return { typeComposersList, queriesList, mutationsList, resolversList };
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >reportDuplicates(</span>typeComposersList, queriesList, mutationsList, resolversList, logger) {
-  const dupTC = <span class="cstat-no" title="statement not covered" >findDuplicates(typeComposersList);</span>
-  const dupQ = <span class="cstat-no" title="statement not covered" >findDuplicates(queriesList);</span>
-  const dupM = <span class="cstat-no" title="statement not covered" >findDuplicates(mutationsList);</span>
-  const dupR = <span class="cstat-no" title="statement not covered" >findDuplicates(resolversList);</span>
-<span class="cstat-no" title="statement not covered" >  if (!R.isEmpty(dupTC)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate typeComposers:', dupTC);</span></span>
-<span class="cstat-no" title="statement not covered" >  if (!R.isEmpty(dupQ)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate queries:', dupQ);</span></span>
-<span class="cstat-no" title="statement not covered" >  if (!R.isEmpty(dupM)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate mutations:', dupM);</span></span>
-<span class="cstat-no" title="statement not covered" >  if (!R.isEmpty(dupR)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate resolvers:', dupR);</span></span>
+export function reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, logger) {
+  const dupTC = findDuplicates(typeComposersList);
+  const dupQ = findDuplicates(queriesList);
+  const dupM = findDuplicates(mutationsList);
+  const dupR = findDuplicates(resolversList);
+  if (!R.isEmpty(dupTC)) logger.error('featureLoader: Duplicate typeComposers:', dupTC);
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!R.isEmpty(dupQ)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate queries:', dupQ);</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!R.isEmpty(dupM)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate mutations:', dupM);</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!R.isEmpty(dupR)) <span class="cstat-no" title="statement not covered" >logger.error('featureLoader: Duplicate resolvers:', dupR);</span>
 } </pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -181,7 +181,7 @@ export function <span class="fstat-no" title="function not covered" >reportDupli
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T07:45:59.733Z
+                at 2025-06-21T06:54:04.440Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

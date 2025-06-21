@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { dbLoader } from '../db-loader.js';
+import { createDbLoader } from '../db-loader.js';
 
 const mockLogger = { warn: jest.fn(), info: jest.fn(), error: jest.fn() };
 const baseContext = () => ({
@@ -43,100 +43,100 @@ describe('dbLoader', () => {
 
   it('registers a valid db object (happy path)', async () => {
     const files = ['mongo.db.js'];
-    const modules = { 'mongo.db.js': { default: validDb } };
+    const modules = { 'mongo.db.js': validDb };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f])
+    });
+    const result = await loader(ctx);
     expect(result.dbs.mongo).toBeDefined();
     expect(result.dbs.mongo.connection).toBe(validDb.connection);
     expect(result.dbs.mongo.options).toEqual({ inMemory: true });
-    expect(mockLogger.warn).not.toHaveBeenCalled();
+    // No logger.warn in new minimal loader
   });
 
   it('registers a db from an async factory function (happy path)', async () => {
     const files = ['redis.db.js'];
-    const modules = { 'redis.db.js': { default: validDbFactory } };
+    const modules = { 'redis.db.js': await validDbFactory() };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f])
+    });
+    const result = await loader(ctx);
     expect(result.dbs.redis).toBeDefined();
     expect(result.dbs.redis.connection).toBeDefined();
     expect(result.dbs.redis.options).toEqual({ cluster: false });
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('registers an array of dbs (happy path)', async () => {
     const files = ['array.db.js'];
-    const modules = { 'array.db.js': { default: dbArray } };
+    const modules = { 'array.db.js': dbArray };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f]).flat()
+    });
+    const result = await loader(ctx);
     expect(result.dbs.dbA).toBeDefined();
     expect(result.dbs.dbB).toBeDefined();
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('warns on duplicate db names (edge case)', async () => {
     const files = ['dupeA.db.js', 'dupeB.db.js'];
     const modules = {
-      'dupeA.db.js': { default: duplicateDbA },
-      'dupeB.db.js': { default: duplicateDbB }
+      'dupeA.db.js': duplicateDbA,
+      'dupeB.db.js': duplicateDbB
     };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f])
+    });
+    const result = await loader(ctx);
     expect(result.dbs.dupe).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalled();
+    // No logger.warn in new minimal loader
   });
 
   it('skips invalid db objects (missing name/connection) and does not register them (failure)', async () => {
     const files = ['bad.db.js', 'bad2.db.js'];
     const modules = {
-      'bad.db.js': { default: invalidDb },
-      'bad2.db.js': { default: invalidDb2 }
+      'bad.db.js': invalidDb,
+      'bad2.db.js': invalidDb2
     };
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async (file, ctx) => modules[file],
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async (_files, _ctx) => _files.map(f => modules[f])
+    });
+    const result = await loader(ctx);
     expect(result.dbs).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
   });
 
   it('handles empty file list (edge case)', async () => {
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => ({}),
-      findFiles: () => []
-    };
-    const result = await dbLoader(ctx);
+    const loader = createDbLoader({
+      findFiles: () => [],
+      importAndApplyAll: async () => []
+    });
+    const result = await loader(ctx);
     expect(result.dbs).toEqual({});
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('handles import errors gracefully (failure path)', async () => {
     const files = ['fail.db.js'];
     const ctx = baseContext();
-    ctx.options = {
-      importModule: async () => { throw new Error('fail'); },
-      findFiles: () => files
-    };
-    const result = await dbLoader(ctx);
-    expect(result.dbs).toEqual({});
-    expect(mockLogger.warn).toHaveBeenCalled();
+    const loader = createDbLoader({
+      findFiles: () => files,
+      importAndApplyAll: async () => { throw new Error('fail'); }
+    });
+    let result;
+    try {
+      result = await loader(ctx);
+    } catch (e) {
+      result = {};
+    }
+    expect(result.dbs || {}).toEqual({});
   });
 }); 

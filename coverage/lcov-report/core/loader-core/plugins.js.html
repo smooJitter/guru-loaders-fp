@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">61.11% </span>
+                <span class="strong">13.88% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>22/36</span>
+                <span class='fraction'>5/36</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28.57% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/7</span>
+                <span class='fraction'>0/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>12/20</span>
+                <span class='fraction'>0/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">61.9% </span>
+                <span class="strong">23.8% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>13/21</span>
+                <span class='fraction'>5/21</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -146,21 +146,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Plugin and higher-order loader utilities for loader-utils-new.
  * Includes withPlugins, withMiddleware, withValidation.
@@ -195,21 +195,21 @@ export const asyncLoggingPlugin = {
   }
 };
 &nbsp;
-export const withPlugins = (plugins = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; (loader) =&gt; async (context) =&gt; {
-  const beforeContext = await pipeAsync(...plugins.map(p =&gt; p.before || (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >x </span>=&gt; <span class="cstat-no" title="statement not covered" >x)</span></span>))(context);
-  const result = await loader(beforeContext);
-  const afterContext = await pipeAsync(...plugins.map(p =&gt; p.after || (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >x </span>=&gt; <span class="cstat-no" title="statement not covered" >x)</span></span>))(result.context);
-  return { ...result, context: afterContext };
+export const withPlugins = <span class="fstat-no" title="function not covered" >(p</span>lugins = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(l</span>oader) =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync (context) =&gt; {</span></span>
+  const beforeContext = <span class="cstat-no" title="statement not covered" >await pipeAsync(...plugins.map(<span class="fstat-no" title="function not covered" >p </span>=&gt; <span class="cstat-no" title="statement not covered" >p.before || (<span class="fstat-no" title="function not covered" >x </span>=&gt; <span class="cstat-no" title="statement not covered" >x)</span>)</span>)(context);</span>
+  const result = <span class="cstat-no" title="statement not covered" >await loader(beforeContext);</span>
+  const afterContext = <span class="cstat-no" title="statement not covered" >await pipeAsync(...plugins.map(<span class="fstat-no" title="function not covered" >p </span>=&gt; <span class="cstat-no" title="statement not covered" >p.after || (<span class="fstat-no" title="function not covered" >x </span>=&gt; <span class="cstat-no" title="statement not covered" >x)</span>)</span>)(result.context);</span>
+<span class="cstat-no" title="statement not covered" >  return { ...result, context: afterContext };</span>
 };
 &nbsp;
-export const withMiddleware = (middleware = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; (loader) =&gt; async (context) =&gt; {
-  const middlewareContext = await pipeAsync(...middleware)(context);
-  return loader(middlewareContext);
+export const withMiddleware = <span class="fstat-no" title="function not covered" >(m</span>iddleware = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(l</span>oader) =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync (context) =&gt; {</span></span>
+  const middlewareContext = <span class="cstat-no" title="statement not covered" >await pipeAsync(...middleware)(context);</span>
+<span class="cstat-no" title="statement not covered" >  return loader(middlewareContext);</span>
 };
 &nbsp;
-export const withValidation = (validators = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; (loader) =&gt; async (context) =&gt; {
-  await Promise.all(validators.map(v =&gt; v(context)));
-  return loader(context);
+export const withValidation = <span class="fstat-no" title="function not covered" >(v</span>alidators = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(l</span>oader) =&gt; <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync (context) =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  await Promise.all(validators.map(<span class="fstat-no" title="function not covered" >v </span>=&gt; <span class="cstat-no" title="statement not covered" >v(context))</span>);</span>
+<span class="cstat-no" title="statement not covered" >  return loader(context);</span>
 }; </pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -217,7 +217,7 @@ export const withValidation = (validators = <span class="branch-0 cbranch-no" ti
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-18T08:54:42.684Z
+                at 2025-06-19T02:19:53.860Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

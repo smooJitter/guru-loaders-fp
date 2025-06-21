@@ -1,53 +1,57 @@
-import { createLoader } from '../../utils/loader-utils.js';
-import { extractActions } from './extractActions.js';
-import { validateActionModule } from './validateActionModule.js';
-import { getLoaderLogger } from '../../utils/loader-logger.js';
+import { createAsyncLoader } from '../../core/loader-core/loader-async.js';
+import { buildNamespacedRegistry } from '../../core/loader-core/lib/registry-builders.js';
 
 const ACTION_PATTERNS = [
-  'src/**/*.actions.js',
-  'src/**/*-actions/index.js',
+  '**/*.actions.js',
+  '**/*-actions/index.js'
 ];
 
-/**
- * Transform: Extract and namespace actions
- * @param {object} module - The imported module
- * @param {object} ctx - The loader context
- * @returns {object} Namespaced action registry
- */
-const transformActions = (module, ctx) => {
-  const logger = getLoaderLogger(ctx, {}, 'action-loader');
-  return extractActions(module, ctx, logger);
-};
-
-/**
- * Create the action loader (namespaced)
- * @param {object} options - Loader options
- * @returns {function} Loader function
- */
-export const createActionLoader2 = (options = {}) =>
-  createLoader('actions', {
-    patterns: options.patterns || ACTION_PATTERNS,
-    ...options,
-    transform: (modules, ctx) => {
-      const logger = getLoaderLogger(ctx, {}, 'action-loader');
-      return extractActions(modules, ctx, logger);
-    },
-    validate: options.validate || validateActionModule,
-  });
-
-export const actionLoader2 = async (ctx = {}) => {
-  const options = ctx.options || {};
-  const loader = createActionLoader2({
-    findFiles: options.findFiles,
-    importModule: options.importModule,
-    patterns: options.patterns
-  });
-  const { context } = await loader(ctx);
-  // Ensure actions is set on context
-  if (!context.actions || typeof context.actions !== 'object') {
-    context.actions = {};
+function validateAction(mod, file, logger) {
+  const errors = [];
+  const arr = Array.isArray(mod) ? mod : [mod];
+  for (const action of arr) {
+    if (!action) {
+      errors.push(`Action is undefined or null in file: ${file}`);
+      continue;
+    }
+    if (typeof action.namespace !== 'string') {
+      errors.push(`Missing or invalid 'namespace' for action '${action.name ?? '[unknown]'}' in file: ${file}`);
+    }
+    if (typeof action.name !== 'string') {
+      errors.push(`Missing or invalid 'name' for action in namespace '${action.namespace ?? '[unknown]'}' in file: ${file}`);
+    }
+    if (typeof action.method !== 'function') {
+      errors.push(`Missing or invalid 'method' for action '${action.name ?? '[unknown]'}' in namespace '${action.namespace ?? '[unknown]'}' in file: ${file}`);
+    }
   }
-  return { actions: context.actions };
+  if (errors.length && logger) {
+    errors.forEach(err => logger.error?.(`[action-loader] ${err}`));
+  }
+  return errors.length === 0;
+}
+
+export const createActionLoader = (options = {}) => {
+  return createAsyncLoader('actions', {
+    patterns: options.patterns || ACTION_PATTERNS,
+    findFiles: options.findFiles, // allow override for tests
+    importAndApplyAll: options.importAndApplyAll, // allow override for tests
+    validate: (mod, file, context) => {
+      // Prefer context.services.logger, fallback to options.logger or console
+      const logger = context?.services?.logger || options.logger || console;
+      return validateAction(mod, file, logger);
+    },
+    registryBuilder: buildNamespacedRegistry,
+    transform: mod => (Array.isArray(mod) ? mod : [mod]),
+    contextKey: 'actions',
+    ...options
+  });
 };
 
-export default actionLoader2; 
+export const actionLoader = async (ctx = {}) => {
+  const logger = ctx?.services?.logger || ctx?.options?.logger || console;
+  const loader = createActionLoader({ logger });
+  const result = await loader(ctx);
+  return { actions: result.actions };
+};
+
+export default actionLoader; 

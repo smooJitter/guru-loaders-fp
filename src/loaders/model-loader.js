@@ -1,165 +1,69 @@
-import { createLoader } from '../utils/loader-utils.js';
 import mongoose from 'mongoose';
-import { findFiles } from '../utils/file-utils.js';
+import { createAsyncLoader } from '../core/loader-core/loader-async.js';
+import { buildFlatRegistryByModelName } from '../core/loader-core/lib/registry-builders.js';
+import * as R from 'ramda';
+
+/**
+ * Modern Model Loader: Discovers, imports, and registers all Mongoose models using context-injected utilities.
+ * - Supports both direct model and factory function exports.
+ * - Registers models on both mongoose.models and context.models (flat registry).
+ * - Uses only context-injected findFiles and importModule (no static imports except mongoose).
+ * - Provides a cleanup function to remove loaded models from mongoose.models.
+ * - Uses context.services.logger or console for logging.
+ * - Returns { models, cleanup, error }.
+ * - All logic is async and composable.
+ */
+
+// --- Pure, future-proof loader: returns both local and global registries ---
 
 const MODEL_PATTERNS = [
-  '**/*.model.js',
-  '**/models/**/*.index.js'
+  '**/*.model.js'
 ];
 
-/**
- * Extracts and registers a Mongoose model from a module export.
- * Handles both direct model objects and factory functions.
- * Logs duplicate warnings and tracks registered model names for cleanup.
- * @param {object} mod - The imported module
- * @param {object} ctx - Loader context
- * @returns {object|undefined} - The registered model or undefined if invalid
- */
-function extractAndRegisterModel(mod, ctx) {
-  const mongooseConnection = ctx?.mongooseConnection || mongoose;
-  const logger = ctx?.services?.logger || console;
-  let model;
-  // Track registered model names for cleanup
-  ctx._registeredModelNames = ctx._registeredModelNames || new Set();
-  
+function isValidMongooseModel(model) {
+  return model && typeof model.modelName === 'string' && typeof model.findById === 'function';
+}
+
+export const createModelLoader = (options = {}) => {
+  return createAsyncLoader('models', {
+    patterns: MODEL_PATTERNS,
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll,
+    validate: isValidMongooseModel,
+    // No-op registryBuilder: we only care about side effects
+    registryBuilder: modules => modules, // Pass through for local registry
+    contextKey: 'models',
+    ...options,
+  });
+};
+
+const modelLoader = async (context = {}) => {
+  const mongooseConnection = context.mongooseConnection || mongoose;
+  const loader = createModelLoader({
+    findFiles: context.findFiles,
+    importAndApplyAll: context.importAndApplyAll,
+  });
   try {
-    // Direct model export
-    if (mod.default && mod.default.modelName && mod.default.schema) {
-      const modelName = mod.default.modelName;
-      if (mongooseConnection.models[modelName]) {
-        logger.warn?.(
-          '[model-loader]',
-          `Duplicate model name: ${modelName} (using existing)`
-        );
-        model = mongooseConnection.models[modelName];
-      } else {
-        model = mongooseConnection.model(modelName, mod.default.schema);
-      }
-      ctx._registeredModelNames.add(modelName);
-    }
-    // Factory export
-    else if (typeof mod.default === 'function') {
-      const beforeKeys = new Set(Object.keys(mongooseConnection.models));
-      let maybeModel;
-      try {
-        maybeModel = mod.default({ mongooseConnection, ...ctx });
-        if (!maybeModel || !maybeModel.modelName || !maybeModel.schema) {
-          logger.warn?.('[model-loader]', 'Factory returned invalid model');
-          return undefined;
-        }
-        if (beforeKeys.has(maybeModel.modelName)) {
-          logger.warn?.(
-            '[model-loader]',
-            `Duplicate model name: ${maybeModel.modelName} (using existing)`
-          );
-          model = mongooseConnection.models[maybeModel.modelName];
-        } else {
-          model = mongooseConnection.model(maybeModel.modelName, maybeModel.schema);
-        }
-        ctx._registeredModelNames.add(maybeModel.modelName);
-      } catch (err) {
-        logger.warn?.('[model-loader]', `Error in model factory: ${err.message}`);
-        return undefined;
-      }
-    }
-    // Invalid export
-    else {
-      logger.warn?.('[model-loader]', 'Invalid module export format');
-      return undefined;
-    }
-    
-    if (model && model.modelName && typeof model.findById === 'function') {
-      return model;
-    }
-    logger.warn?.('[model-loader]', 'Model validation failed');
-    return undefined;
-  } catch (err) {
-    logger.error?.('[model-loader]', `Error loading model: ${err.message}`);
-    return undefined;
-  }
-}
-
-/**
- * Validates that a value is a real Mongoose model (has modelName and findById).
- * @param {string} type - Loader type ("models")
- * @param {object} model - The model to validate
- * @returns {boolean}
- */
-function isValidMongooseModel(type, model) {
-  return model && model.modelName && typeof model.findById === 'function';
-}
-
-/**
- * Builds a registry of loaded models from the Mongoose connection.
- * Only includes models that were just loaded by name.
- * @param {object[]} modules - Array of loaded model objects
- * @param {object} ctx - Loader context
- * @returns {object} - Registry of models keyed by name
- */
-function buildMongooseRegistry(modules, ctx) {
-  const mongooseConnection = ctx?.mongooseConnection || mongoose;
-  const logger = ctx?.services?.logger || console;
-  const loadedNames = modules.filter(Boolean).map(m => m.modelName);
-  const registry = {};
-  
-  for (const name of loadedNames) {
-    if (mongooseConnection.models[name]) {
-      registry[name] = mongooseConnection.models[name];
-    } else {
-      logger.warn?.('[model-loader]', `Model ${name} not found in mongoose connection`);
-    }
-  }
-  return registry;
-}
-
-/**
- * Dynamically loads and registers all Mongoose models in the project.
- * Handles factories, direct exports, duplicate detection, and cleanup.
- * @param {object} ctx - Loader context (should include services.logger and optionally mongooseConnection)
- * @returns {Promise<{models: object, cleanup: function, error: Error|null}>}
- */
-export const modelLoader = async (ctx = {}) => {
-  const logger = ctx?.services?.logger || console;
-  const mongooseConnection = ctx.mongooseConnection || mongoose;
-  let error = null;
-  let models = {};
-  let registeredNames = new Set();
-  let cleanup = () => {};
-
-  try {
-    // Patch context to track registered model names
-    const patchedCtx = { ...ctx, _registeredModelNames: registeredNames };
-    // Always use findFiles/importModule from context if present
-    const options = {
-      ...(ctx.options || {}),
-      findFiles: ctx.findFiles || (ctx.options && ctx.options.findFiles),
-      importModule: ctx.importModule || (ctx.options && ctx.options.importModule),
+    // 1. Discover, import, and register all model files
+    const loaderResult = await loader(context);
+    // 2. Build a local registry of just the models loaded by this run
+    //    This enables test isolation, feature-based loading, and composability.
+    const loadedModels = buildFlatRegistryByModelName(loaderResult.models);
+    // 3. Clone the full global registry for compatibility
+    const models = R.clone(mongooseConnection.models);
+    // 4. Cleanup only the models loaded by this run
+    const cleanup = () => {
+      Object.keys(loadedModels).forEach(modelName => {
+        delete mongooseConnection.models[modelName];
+      });
     };
-    const loader = createLoader('models', {
-      patterns: options.patterns || MODEL_PATTERNS,
-      findFiles: options.findFiles,
-      importModule: options.importModule,
-      preTransformFns: [extractAndRegisterModel],
-      transform: (m) => m,
-      validate: isValidMongooseModel,
-      registryBuilder: buildMongooseRegistry,
-      logger
-    });
-    const { context } = await loader(patchedCtx);
-    models = context.models || {};
-    // Merge in any registered names from context
-    registeredNames = patchedCtx._registeredModelNames || registeredNames;
-    cleanup = () => {
-      for (const name of registeredNames) {
-        delete mongooseConnection.models[name];
-      }
-    };
-  } catch (err) {
-    error = err;
-    logger.error('[model-loader]', err);
+    // 5. Return a new context object with both registries and cleanup attached
+    return R.mergeRight(context, { models, loadedModels, cleanup });
+  } catch (error) {
+    const models = R.clone(mongooseConnection.models);
+    const cleanup = () => {};
+    return R.mergeRight(context, { models, loadedModels: {}, cleanup, error });
   }
-
-  return { models, cleanup, error };
 };
 
 export default modelLoader; 

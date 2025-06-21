@@ -1,12 +1,7 @@
 export default {
   testEnvironment: 'node',
-  transform: {},
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^\.\./file-utils-new\.js$': '<rootDir>/src/utils/file-utils-new.js',
-    '^\.\./async-pipeline-utils\.js$': '<rootDir>/src/utils/async-pipeline-utils.js',
-    '^\.\./async-collection-utils\.js$': '<rootDir>/src/utils/async-collection-utils.js',
-  },
+  moduleFileExtensions: ['js', 'mjs', 'jsx', 'json'],
+  testMatch: ['**/__tests__/**/*.test.js', '**/__tests__/**/*.test.mjs'],
   coverageThreshold: {
     global: {
       branches: 80,
@@ -18,15 +13,12 @@ export default {
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
-  moduleFileExtensions: ['js', 'jsx', 'json'],
-  testMatch: ['**/__tests__/**/*.test.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons']
   },
   testRunner: 'jest-circus/runner',
-  moduleDirectories: ['node_modules', 'src', '<rootDir>'],
+  moduleDirectories: ['node_modules', '<rootDir>'],
   roots: ['<rootDir>'],
-  modulePaths: ['<rootDir>', '<rootDir>/src'],
-  resolver: undefined
+  modulePaths: ['<rootDir>'],
 }; 

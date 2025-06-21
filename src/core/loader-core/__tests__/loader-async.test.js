@@ -1,118 +1,103 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { createAsyncLoader } from '../loader-async.js';
+import { buildFlatRegistryByName } from '../lib/registry-builders.js';
+import { mockContext } from './lib/mockContext.js';
+import { flatModules, flatRegistry } from './lib/registryMocks.js';
 
-describe('loader-core/loader-async', () => {
-  let mockContext;
-  let mockOptions;
-  let createAsyncLoader;
+// Async mocks for use in async loader tests
+const asyncMockFindFiles = files => async () => files;
+const asyncMockImportAndApplyAll = modules => async () => modules;
 
-  beforeEach(async () => {
-    const loaderAsync = await import('../loader-async.js');
-    createAsyncLoader = loaderAsync.createAsyncLoader;
-
-    mockContext = {
-      services: {
-        logger: mockLogger
-      }
-    };
-
-    mockOptions = {
-      patterns: ['**/*.async.js'],
-      validate: jest.fn().mockReturnValue(true),
-      transform: jest.fn().mockImplementation(async (m) => m),
-      watch: false,
-      logger: mockContext.services.logger,
-      importModule: jest.fn().mockResolvedValue({ test: true }),
-      findFiles: mockFileUtils.findFiles.mockResolvedValue(['file1.async.js', 'file2.async.js']),
-      onDuplicate: jest.fn(),
-      onInvalid: jest.fn()
-    };
+describe('loader-async.js', () => {
+  it('should build a flat registry from files (happy path)', async () => {
+    const loader = createAsyncLoader('test', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['a.js', 'b.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll(flatModules),
+      registryBuilder: buildFlatRegistryByName,
+      validate: m => !!m.name,
+      contextKey: 'test',
+    });
+    const context = await loader(mockContext());
+    expect(context.test).toEqual(flatRegistry);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('should handle empty modules (edge case)', async () => {
+    const loader = createAsyncLoader('test', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles([]),
+      importAndApplyAll: asyncMockImportAndApplyAll([]),
+      registryBuilder: buildFlatRegistryByName,
+      validate: m => !!m.name,
+      contextKey: 'test',
+    });
+    const context = await loader(mockContext());
+    expect(context.test).toEqual({});
   });
 
-  describe('createAsyncLoader', () => {
-    it('should create an async loader that processes modules', async () => {
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context, cleanup } = await loader(mockContext);
-
-      expect(mockOptions.findFiles).toHaveBeenCalledWith(
-        ['**/*.async.js'],
-        {}
-      );
-      expect(mockOptions.importModule).toHaveBeenCalledTimes(2);
-      expect(context.test).toBeDefined();
-      expect(cleanup).toBeInstanceOf(Function);
+  it('should reject invalid modules (failure case)', async () => {
+    const invalidModules = [{ notName: true }];
+    const loader = createAsyncLoader('test', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['bad.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll(invalidModules),
+      registryBuilder: buildFlatRegistryByName,
+      validate: m => !!m.name,
+      contextKey: 'test',
     });
+    const context = await loader(mockContext());
+    expect(context.test).toEqual({});
+  });
 
-    it('should handle async transforms correctly', async () => {
-      const asyncTransform = jest.fn().mockImplementation(
-        async (m) => ({ ...m, transformed: true })
-      );
-      mockOptions.transform = asyncTransform;
-
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context } = await loader(mockContext);
-
-      expect(asyncTransform).toHaveBeenCalled();
-      expect(context.test).toBeDefined();
+  it('should compose with another async loader (composability)', async () => {
+    const loaderA = createAsyncLoader('a', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['a.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll([{ name: 'a', value: 1 }]),
+      registryBuilder: buildFlatRegistryByName,
+      validate: m => !!m.name,
+      contextKey: 'a',
     });
-
-    it('should handle async validation correctly', async () => {
-      const asyncValidate = jest.fn().mockImplementation(
-        async () => Promise.resolve(true)
-      );
-      mockOptions.validate = asyncValidate;
-
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context } = await loader(mockContext);
-
-      expect(asyncValidate).toHaveBeenCalled();
-      expect(context.test).toBeDefined();
+    const loaderB = createAsyncLoader('b', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['b.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll([{ name: 'b', value: 2 }]),
+      registryBuilder: buildFlatRegistryByName,
+      validate: m => !!m.name,
+      contextKey: 'b',
     });
+    const contextA = await loaderA(mockContext());
+    const contextB = await loaderB(contextA);
+    expect(contextB.a).toEqual({ a: { name: 'a', value: 1 } });
+    expect(contextB.b).toEqual({ b: { name: 'b', value: 2 } });
+  });
 
-    it('should handle async errors gracefully', async () => {
-      mockOptions.transform.mockRejectedValueOnce(new Error('Transform failed'));
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context } = await loader(mockContext);
-
-      expect(mockContext.services.logger.warn).toHaveBeenCalled();
-      expect(context).toBeDefined();
+  it('should log and throw if validate throws (error handling)', async () => {
+    const logger = { error: jest.fn() };
+    const throwingValidate = () => { throw new Error('Validation failed'); };
+    const loader = createAsyncLoader('test', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['bad.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll([{ name: 'bad' }]),
+      registryBuilder: buildFlatRegistryByName,
+      validate: throwingValidate,
+      contextKey: 'test',
     });
+    const context = mockContext({ services: { logger } });
+    await expect(loader(context)).rejects.toThrow('Validation failed');
+  });
 
-    it('should respect async registry transformations', async () => {
-      mockOptions.registryType = 'event';
-      mockOptions.transform = jest.fn().mockImplementation(
-        async (m) => ({ ...m, event: 'test' })
-      );
-
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context } = await loader(mockContext);
-
-      expect(context.test).toBeDefined();
-      expect(mockOptions.transform).toHaveBeenCalled();
+  it('should log and throw if registryBuilder throws (error handling)', async () => {
+    const logger = { error: jest.fn() };
+    const throwingRegistryBuilder = () => { throw new Error('Registry build failed'); };
+    const loader = createAsyncLoader('test', {
+      patterns: ['*'],
+      findFiles: asyncMockFindFiles(['bad.js']),
+      importAndApplyAll: asyncMockImportAndApplyAll([{ name: 'bad' }]),
+      registryBuilder: throwingRegistryBuilder,
+      validate: m => !!m.name,
+      contextKey: 'test',
     });
-
-    it('should handle file watching with async operations', async () => {
-      mockOptions.watch = true;
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context, cleanup } = await loader(mockContext);
-
-      expect(cleanup).toBeInstanceOf(Function);
-      await cleanup(); // Should not throw
-    });
-
-    it('should filter out invalid async modules', async () => {
-      mockOptions.validate = jest.fn().mockImplementation(
-        async () => Promise.resolve(false)
-      );
-
-      const loader = createAsyncLoader('test', mockOptions);
-      const { context } = await loader(mockContext);
-
-      expect(mockOptions.onInvalid).toHaveBeenCalled();
-      expect(Object.keys(context.test || {})).toHaveLength(0);
-    });
+    const context = mockContext({ services: { logger } });
+    await expect(loader(context)).rejects.toThrow('Registry build failed');
   });
 }); 

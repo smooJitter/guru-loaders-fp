@@ -37,4 +37,30 @@ describe('withNamespace', () => {
   it('handles empty actions object', () => {
     expect(withNamespace('foo', {})).toEqual([]);
   });
+
+  it('skips entries with missing method', () => {
+    const actions = {
+      create: { meta: { foo: 1 } }, // missing method
+      update: { method: () => 'updated' }
+    };
+    const result = withNamespace('post', actions);
+    expect(result[0]).toMatchObject({
+      namespace: 'post',
+      name: 'create',
+      method: undefined,
+      meta: { foo: 1 }
+    });
+    expect(result[1]).toMatchObject({
+      namespace: 'post',
+      name: 'update',
+      method: actions.update.method
+    });
+  });
+
+  it('handles non-object actions', () => {
+    expect(withNamespace('foo', null)).toEqual([]);
+    expect(withNamespace('foo', undefined)).toEqual([]);
+    expect(withNamespace('foo', 42)).toEqual([]);
+    expect(withNamespace('foo', 'bar')).toEqual([]);
+  });
 }); 

@@ -40,6 +40,9 @@ describe('envLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs).toBeDefined();
     expect(result.envs.user).toMatchObject({
@@ -62,6 +65,9 @@ describe('envLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs.dupe).toBeDefined();
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -75,6 +81,9 @@ describe('envLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -88,6 +97,9 @@ describe('envLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -99,6 +111,9 @@ describe('envLoader', () => {
       importModule: async () => ({}),
       findFiles: () => []
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs).toEqual({});
     expect(mockLogger.warn).not.toHaveBeenCalled();
@@ -111,8 +126,19 @@ describe('envLoader', () => {
       importModule: async () => { throw new Error('fail'); },
       findFiles: () => files
     };
+    ctx.logger = mockLogger;
+    ctx.services.logger = mockLogger;
+    ctx.options.logger = mockLogger;
     const result = await envLoader(ctx);
     expect(result.envs).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
+  });
+
+  it('logs to console.info if no logger is present', async () => {
+    const ctx = { envs: {} }; // no services.logger
+    const consoleSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    await envLoader(ctx);
+    expect(consoleSpy).toHaveBeenCalledWith('[env-loader] Final envs registry:', {});
+    consoleSpy.mockRestore();
   });
 }); 

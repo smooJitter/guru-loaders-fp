@@ -1,107 +1,104 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import * as fileUtils from '../../utils/file-utils.js';
-import featureLoader from '../feature-loader/feature-loader.js';
-import * as R from 'ramda';
-import { discoverFeatureArtifacts as realDiscoverFeatureArtifacts } from '../feature-loader/discover-feature-artifacts.js';
+import { createFeatureLoader } from '../feature-loader/feature-loader.js';
 
-const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
-const mockFindFiles = jest.fn(async () => ['features/foo/index.js', 'features/bar/index.js']);
-const mockDiscoverFeatureArtifacts = jest.fn(async (featureDir) => {
-  if (featureDir.endsWith('foo')) {
-    return {
-      typeComposers: { fooTC: { value: 1 } },
-      queries: {},
-      mutations: {},
-      resolvers: {}
-    };
-  } else if (featureDir.endsWith('bar')) {
-    return {
-      typeComposers: { barTC: { value: 2 } },
-      queries: {},
-      mutations: {},
-      resolvers: {}
-    };
-  }
-  return { typeComposers: {}, queries: {}, mutations: {}, resolvers: {} };
-});
+const mockFeatureFactoryA = jest.fn(async (ctx) => ({
+  typeComposers: { FooTC: { value: 1 } },
+  queries: { fooQuery: () => 1 },
+  mutations: {},
+  resolvers: {}
+}));
+const mockFeatureFactoryB = jest.fn(async (ctx) => ({
+  typeComposers: { BarTC: { value: 2 } },
+  queries: {},
+  mutations: { barMutation: () => 2 },
+  resolvers: {}
+}));
+const mockErrorFactory = jest.fn(async () => { throw new Error('fail'); });
 
-const fakeFeatures = [
-  { name: 'foo', value: 1 },
-  { name: 'bar', value: 2 }
-];
-
-const baseContext = {
-  schemaComposer: {},
+const baseContext = () => ({
   typeComposers: {},
   queries: {},
   mutations: {},
-  resolvers: {}
-};
+  resolvers: {},
+});
 
-// Patch dynamic import in feature-loader if needed
-// If feature-loader uses import(), refactor to accept importModule for testability
-
-describe('loadFeatures', () => {
+describe('featureLoader (modern QA)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('loads and registers features (happy path)', async () => {
-    const mockContext = R.clone(baseContext);
-    const ctx = await featureLoader({
-      logger: mockLogger,
-      findFiles: mockFindFiles,
-      context: mockContext,
-      discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
-      watch: false
-    });
-    expect(ctx.typeComposers).toHaveProperty('fooTC');
-    expect(ctx.typeComposers.fooTC.value).toBe(1);
-    expect(ctx.typeComposers).toHaveProperty('barTC');
-    expect(ctx.typeComposers.barTC.value).toBe(2);
-    expect(mockLogger.error).not.toHaveBeenCalled();
+  const makeLoader = (files, factoryMap) => createFeatureLoader({
+    findFiles: () => files,
+    importAndApplyAll: async (files, ctx) => {
+      const manifests = [];
+      for (const file of files) {
+        const fn = factoryMap[file];
+        if (typeof fn === 'function') {
+          try {
+            const manifest = await fn(ctx);
+            if (manifest) manifests.push(manifest);
+          } catch (err) {
+            // Swallow error for robust loader
+          }
+        }
+      }
+      return manifests;
+    }
+  });
+
+  it('merges all feature registries (happy path)', async () => {
+    const files = ['features/foo/index.js', 'features/bar/index.js'];
+    const factoryMap = {
+      'features/foo/index.js': mockFeatureFactoryA,
+      'features/bar/index.js': mockFeatureFactoryB,
+    };
+    const ctx = baseContext();
+    const loader = makeLoader(files, factoryMap);
+    await loader(ctx);
+    expect(ctx.typeComposers.FooTC).toEqual({ value: 1 });
+    expect(ctx.typeComposers.BarTC).toEqual({ value: 2 });
+    expect(ctx.queries.fooQuery()).toBe(1);
+    expect(ctx.mutations.barMutation()).toBe(2);
+    expect(mockFeatureFactoryA).toHaveBeenCalled();
+    expect(mockFeatureFactoryB).toHaveBeenCalled();
   });
 
   it('handles no features found (edge case)', async () => {
-    const mockContext = R.clone(baseContext);
-    mockFindFiles.mockResolvedValueOnce([]);
-    const ctx = await featureLoader({
-      logger: mockLogger,
-      findFiles: mockFindFiles,
-      context: mockContext,
-      discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
-      watch: false
-    });
+    const files = [];
+    const factoryMap = {};
+    const ctx = baseContext();
+    const loader = makeLoader(files, factoryMap);
+    await loader(ctx);
     expect(Object.keys(ctx.typeComposers)).toEqual([]);
+    expect(Object.keys(ctx.queries)).toEqual([]);
+    expect(Object.keys(ctx.mutations)).toEqual([]);
+    expect(Object.keys(ctx.resolvers)).toEqual([]);
   });
 
-  it('logs and throws on artifact error (failure path)', async () => {
-    const mockContext = R.clone(baseContext);
-    mockDiscoverFeatureArtifacts.mockImplementationOnce(() => { throw new Error('fail'); });
-    await expect(featureLoader({
-      logger: mockLogger,
-      findFiles: mockFindFiles,
-      context: mockContext,
-      discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
-      watch: false
-    })).rejects.toThrow('fail');
-    expect(mockLogger.error).toHaveBeenCalled();
+  it('swallows errors from feature factories (robust)', async () => {
+    const files = ['features/foo/index.js', 'features/bad/index.js'];
+    const factoryMap = {
+      'features/foo/index.js': mockFeatureFactoryA,
+      'features/bad/index.js': mockErrorFactory,
+    };
+    const ctx = baseContext();
+    const loader = makeLoader(files, factoryMap);
+    await loader(ctx);
+    expect(ctx.typeComposers.FooTC).toEqual({ value: 1 });
+    expect(ctx.typeComposers.BarTC).toBeUndefined();
+    expect(mockFeatureFactoryA).toHaveBeenCalled();
+    expect(mockErrorFactory).toHaveBeenCalled();
   });
 
-  it('loads features with injected mocks', async () => {
-    const mockContext = R.clone(baseContext);
-    const ctx = await featureLoader({
-      logger: mockLogger,
-      findFiles: mockFindFiles,
-      context: mockContext,
-      discoverFeatureArtifacts: mockDiscoverFeatureArtifacts,
-      watch: false
-    });
-    expect(ctx.typeComposers).toHaveProperty('fooTC');
-    expect(ctx.typeComposers.fooTC.value).toBe(1);
-    expect(ctx.typeComposers).toHaveProperty('barTC');
-    expect(ctx.typeComposers.barTC.value).toBe(2);
-    expect(mockFindFiles).toHaveBeenCalled();
-    expect(mockDiscoverFeatureArtifacts).toHaveBeenCalled();
+  it('merges duplicate keys with last-wins (QA)', async () => {
+    const files = ['features/foo/index.js', 'features/dupe/index.js'];
+    const factoryMap = {
+      'features/foo/index.js': async () => ({ typeComposers: { FooTC: { value: 1 } } }),
+      'features/dupe/index.js': async () => ({ typeComposers: { FooTC: { value: 99 } } }),
+    };
+    const ctx = baseContext();
+    const loader = makeLoader(files, factoryMap);
+    await loader(ctx);
+    expect(ctx.typeComposers.FooTC).toEqual({ value: 99 });
   });
 }); 

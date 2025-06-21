@@ -1,9 +1,4 @@
-// Re-export all main loader utilities for single import path
-export { createFunctionalLoader } from './loader.js';
-export { createAsyncLoader } from './loader-async.js';
-export { buildRegistry, registryStrategies } from './registry.js';
-export { transformRegistry, composeTransforms } from './transforms.js';
-export { withPlugins, withMiddleware, withValidation } from './plugins.js';
-// Optionally, export named transforms/plugins for direct import
-export * from './transforms.js';
-export * from './plugins.js'; 
+// index.js — loader-core
+// ARCHIVED: This module is archived as of 2024-06-12. All new loader development must use `loader-core`.
+// No exports are available from this file. See _archived_20240612/ for legacy code.
+// For new work, use: import ... from './loader-core/...'; 

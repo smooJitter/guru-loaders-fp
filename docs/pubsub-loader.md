@@ -6,14 +6,24 @@ The PubSub Loader in `guru-loaders-fp` is responsible for discovering, validatin
 
 ---
 
+## Loader Pattern (Modern, Minimal, Future-Proof)
+
+- **Declarative:** Uses `createAsyncLoader` from `loader-core`.
+- **No transform step:** All context injection and factory support is handled by `importAndApplyAll`.
+- **Registry built by builder:** Uses `buildPubsubRegistryWithWarning` for a flat registry with duplicate warning.
+- **Validation is pure and minimal:** Only checks for `name` (string).
+- **Duplicate warnings:** Handled by the registry builder, not the loader.
+- **Composable and testable:** Loader is a pure configuration, not an imperative function.
+
+---
+
 ## What Does the Loader Do?
 
 - **Discovers** all files matching your pubsub patterns (e.g., `**/*.pubsub.js`).
-- **Validates** that each module exports the expected shape (e.g., `name`, `topics`, `handlers`, `options`).
-- **Injects** context/services into each pubsub definition if needed.
+- **Validates** that each module exports the expected shape (e.g., `name`).
+- **Injects** context/services into each pubsub definition if needed (handled by import logic).
 - **Aggregates** all pubsub objects into a registry, keyed by name, and attaches it to `appContext.pubsubs`.
-- **Warns** on duplicate names to prevent accidental overwrites.
-- **Unique features:** Supports topic registries, handler mappings, and pubsub engine options.
+- **Warns** on duplicate names to prevent accidental overwrites (handled by registry builder).
 
 ---
 
@@ -82,37 +92,14 @@ export default {
 };
 ```
 
-- The `pubsub` property can be any PubSub engine instance (Apollo, Redis, etc.).
-- This allows you to inject and use the engine directly in your resolvers or services:
-  ```js
-  const pubsub = context.pubsubs.notifications.pubsub;
-  pubsub.publish('NOTIFY', payload);
-  ```
-
 ---
 
-## Advanced Examples
+## Loader Implementation (core-loader-new)
 
-### A. PubSub Module with Multiple Handlers and Dynamic Topics
 ```js
-// notification.pubsub.js
-export default ({ services }) => ({
-  name: 'notificationEvents',
-  topics: {
-    NOTIFY_EMAIL: `notify.email.${services.env}`,
-    NOTIFY_SMS: `notify.sms.${services.env}`
-  },
-  handlers: {
-    NOTIFY_EMAIL: async (payload, context) => {
-      await services.email.send(payload);
-    },
-    NOTIFY_SMS: async (payload, context) => {
-      await services.sms.send(payload);
-    }
-  },
-  options: { retry: 3 }
-});
-```
+import { createAsyncLoader } from '../core/loader-core/loader-async.js';
+import { findFiles, importAndApplyAll } from '../utils/file-utils-new.js';
+import { buildPubsubRegistryWithWarning } from '../core/loader-core/lib/registry-builders.js';
 
 ### B. PubSub Module for GraphQL Subscriptions
 ```js
@@ -130,66 +117,35 @@ export default {
 };
 ```
 
-### C. Array Export for Multiple Event Domains
-```js
-// system.pubsub.js
-export default [
-  {
-    name: 'systemHealth',
-    topics: { HEALTH_CHECK: 'system.healthCheck' },
-    handlers: { HEALTH_CHECK: async (payload) => { /* ... */ } }
-  },
-  {
-    name: 'systemAlert',
-    topics: { ALERT_RAISED: 'system.alertRaised' },
-    handlers: { ALERT_RAISED: async (payload) => { /* ... */ } }
-  }
-];
+export function createPubsubLoader(options = {}) {
+  return createAsyncLoader('pubsubs', {
+    patterns: PUBSUB_PATTERNS,
+    findFiles,
+    importAndApplyAll,
+    registryBuilder: buildPubsubRegistryWithWarning,
+    validate,
+    contextKey: 'pubsubs',
+    ...options
+  });
+}
+
+export default createPubsubLoader();
 ```
 
 ---
 
-## Diagrams
+## Testing Expectations
 
-### 1. PubSub Loader Discovery and Aggregation
-```mermaid
-flowchart TD
-  A["pubsub/*.pubsub.js"] -->|exports| B[PubSub Loader]
-  B --> C{Validate/Inject}
-  C --> D[Aggregate by name]
-  D --> E[appContext.pubsubs]
-```
-
-### 2. PubSub Usage in App
-```mermaid
-flowchart TD
-  A[appContext.pubsubs] --> B[Event Handler]
-  B -->|topics.USER_CREATED| C[pubsubEngine.publish/subscribe]
-  C --> D[External System or Client]
-```
-
----
-
-## Best Practice: Centralized Topic Constants
-
-```js
-// configs/pubsub-topics.js
-export const USER_TOPICS = {
-  CREATED: 'user.created',
-  UPDATED: 'user.updated'
-};
-```
-```js
-// user.pubsub.js
-import { USER_TOPICS } from '../configs/pubsub-topics.js';
-export default {
-  name: 'userEvents',
-  topics: USER_TOPICS,
-  handlers: {
-    CREATED: async (payload) => { /* ... */ }
-  }
-};
-```
+- **Every loader must have a robust test suite:**
+  - Happy path: valid pubsub objects (factory, object, array)
+  - Edge: duplicate names (warn, last wins)
+  - Failure: missing name, invalid type, non-object, array with invalids
+  - Context propagation: context/services are preserved
+  - No transform step: all context injection is handled by import logic
+  - Duplicate warnings: only for actual duplicates, not for all invalids
+- **Mock `findFiles` and `importAndApplyAll` in tests** for full control and isolation.
+- **Logger must be injected in both `context` and `services` for warning checks.**
+- **Tests must be minimal, composable, and future-proof.**
 
 ---
 
@@ -209,32 +165,19 @@ This means your application can easily access any loaded pubsub object by name f
 
 ---
 
-## How Are PubSubs Used Throughout an App?
-
-### 1. **In Event Handlers, Subscriptions, or Services**
-```js
-// Example: publishing an event
-const { pubsubs } = context;
-const { topics } = pubsubs.userEvents;
-pubsubEngine.publish(topics.USER_CREATED, payload);
-
-// Example: subscribing to an event
-pubsubEngine.subscribe(topics.USER_CREATED, pubsubs.userEvents.handlers.USER_CREATED);
-```
-
-### 2. **Best Practices**
-- **Use factory functions** to allow context injection if needed.
-- **Use clear, unique names** for each pubsub object to avoid registry conflicts.
-- **Document each pubsub module** with JSDoc for maintainability.
-- **Avoid direct imports of pubsub modules** in business logic; always use the injected context.
-- **Define all topic keys in a central config/constants file if possible.**
+## Best Practices
+- Use factory functions for context injection.
+- Use clear, unique names for each pubsub object to avoid registry conflicts.
+- Document each pubsub module with JSDoc for maintainability.
+- Avoid direct imports of pubsub modules in business logic; always use the injected context.
+- Define all topic keys in a central config/constants file if possible.
 
 ---
 
 ## Summary
-- The pubsub loader makes it easy to register, validate, and inject all your pubsub definitions into the app context.
-- Pubsubs can be accessed from anywhere in your app, supporting modular, testable event-driven logic.
-- This pattern is scalable, maintainable, and a best practice for modern backends.
+- The pubsub loader is now declarative, minimal, and future-proof.
+- All context injection and registry logic is handled by the loader-core pipeline.
+- Tests must be robust, composable, and enforce the highest standards for loader quality.
 
 ## Property Reference
 

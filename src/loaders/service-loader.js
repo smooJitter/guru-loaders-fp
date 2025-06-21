@@ -1,72 +1,43 @@
-import { createLoader } from '../utils/loader-utils.js';
+import { createAsyncLoader, composeTransforms } from '../core/loader-core';
 
 const SERVICE_PATTERNS = [
   '**/*.service.js',
   '**/services/**/*.index.js'
 ];
 
-/**
- * Extract a service object from a module (factory or object)
- * @param {object} module - The imported module
- * @param {object} ctx - The loader context
- * @returns {object|undefined} The service object or undefined
- */
-export const extractService = (module, ctx) => {
-  if (!module || typeof module !== 'object') return undefined;
-  let serviceObj;
-  if (typeof module.default === 'function') {
-    serviceObj = module.default(ctx);
-  } else {
-    serviceObj = module.default || module;
+// Normalizer for service modules (factory pattern)
+export const normalizeServiceMod = async (mod, ctx) => {
+  // Workaround: use ctx.options.transformContext if ctx is not an object
+  let realCtx = ctx;
+  if (typeof ctx !== 'object' || ctx === null) {
+    realCtx = (ctx && ctx.options && ctx.options.transformContext) || {};
   }
-  if (!serviceObj) return undefined;
-  return {
-    ...serviceObj,
-    type: 'service',
-    timestamp: Date.now()
-  };
+  let svc = mod;
+  if (svc && typeof svc.default !== 'undefined') svc = svc.default;
+  if (typeof svc === 'function') svc = await svc(realCtx);
+  if (!svc || typeof svc !== 'object') return undefined;
+  const result = { ...svc, type: 'service' };
+  console.log('DEBUG normalizeServiceMod:', { mod, ctx: realCtx, result });
+  return result;
 };
 
-/**
- * Validate a service module
- * @param {string} type - The loader type ("services")
- * @param {object} module - The imported module
- * @returns {boolean} True if valid, false otherwise
- */
-export const validateServiceModule = (type, module) => {
-  const svc = extractService(module, {});
-  return !!(svc && typeof svc.name === 'string' && typeof svc.service === 'object');
+// Minimal validation: must have name and service
+export const validateServiceModule = (type, mod) => {
+  return !!(mod && typeof mod.name === 'string' && typeof mod.service === 'object');
 };
 
-export const createServiceLoader = (options = {}) =>
-  createLoader('services', {
-    patterns: options.patterns || SERVICE_PATTERNS,
-    ...options,
-    transform: extractService,
-    validate: validateServiceModule,
-    onDuplicate: (name, ctx) => {
-      ctx.logger?.warn('[service-loader]', 'Duplicate service names found:', [name]);
-    },
-    onInvalid: (module, ctx) => {
-      ctx.logger?.warn('[service-loader]', 'Invalid service module:', module);
-    }
-  });
+const serviceLoaderCore = createAsyncLoader('services', {
+  patterns: SERVICE_PATTERNS,
+  transform: composeTransforms([normalizeServiceMod]),
+  validate: validateServiceModule,
+  registryType: 'service',
+});
 
-export const serviceLoader = async (ctx = {}) => {
-  const options = ctx.options || {};
-  const loader = createServiceLoader({
-    findFiles: options.findFiles,
-    importModule: options.importModule,
-    patterns: options.patterns
-  });
-  
-  const { context } = await loader(ctx);
-  
-  if (!context.services) {
-    context.services = {};
-  }
-  
-  return context;
+const serviceLoader = async (ctx = {}) => {
+  const { context } = await serviceLoaderCore(ctx);
+  ctx.services = context['services'] || {};
+  return ctx;
 };
 
-export default serviceLoader; 
+export default serviceLoader;
+export { serviceLoader }; 

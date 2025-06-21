@@ -1,62 +1,38 @@
-import R from 'ramda';
-import { createLoader } from '../core/pipeline/create-pipeline.js';
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
+import { createAsyncLoader } from '../core/loader-core/loader-async.js';
+import { buildFlatRegistryByName } from '../core/loader-core/lib/registry-builders.js';
 
-// File patterns for auth
-const AUTH_PATTERNS = {
-  default: '**/auth.*.js',
-  roles: '**/roles.*.js',
-  guards: '**/guards.*.js',
-  index: '**/auth/index.js'
+const AUTH_PATTERNS = [
+  '**/auth.*.js',
+  '**/roles.*.js',
+  '**/guards.*.js',
+  '**/auth/index.js'
+];
+
+const transform = (mod, context) =>
+  typeof mod === 'function' ? mod(context) : mod;
+
+// Context-agnostic validate: no logging, just check for name
+const validate = (mod) => {
+  let obj = typeof mod === 'function' ? mod({}) : mod;
+  return !!obj && typeof obj.name === 'string';
 };
 
-// Auth validation schema for the validation hook
-const authSchema = {
-  name: 'string',
-  roles: 'object',
-  guards: 'object',
-  options: 'object'
-};
-
-/**
- * Create the auth loader with hooks for validation, context injection, logging, and error handling.
- * Supports modules that export a factory function or a plain object.
- * @param {object} options Loader options
- * @returns {function} Loader function
- */
-export const createAuthLoader = (options = {}) => {
-  const loader = createLoader('auth', {
-    ...options,
-    patterns: AUTH_PATTERNS,
-    validate: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const authObj = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      return validationHook(authObj, authSchema);
-    },
-    transform: (module, context) => {
-      // If factory, call with context/services; else use as-is
-      const authObj = typeof module.default === 'function'
-        ? module.default({ services: context?.services, config: context?.config })
-        : module.default;
-      // Inject context/services if needed
-      return contextInjectionHook(authObj, { services: context?.services, config: context?.config });
-    }
+export const createAuthLoader = (options = {}) =>
+  createAsyncLoader('auth', {
+    patterns: options.patterns || AUTH_PATTERNS,
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll,
+    validate,
+    registryBuilder: buildFlatRegistryByName,
+    transform: (mod, context) => [transform(mod, context)],
+    contextKey: 'auth',
+    ...options
   });
 
-  // Composable loader function
-  return async (context) => {
-    // Log the loading phase
-    loggingHook(context, 'Loading auth modules');
-
-    // Wrap the loader in error handling
-    return errorHandlingHook(async () => {
-      const { context: loaderContext, cleanup } = await loader(context);
-      return { context: loaderContext, cleanup };
-    }, context);
-  };
+export const authLoader = async (ctx = {}) => {
+  const loader = createAuthLoader({ logger: ctx?.services?.logger || console });
+  const result = await loader(ctx);
+  return { auth: result.auth };
 };
 
-export const authLoader = createAuthLoader();
 export default authLoader; 

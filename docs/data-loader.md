@@ -127,6 +127,102 @@ const resolvers = {
 
 ---
 
+## Recommended DataLoader Registry Pattern
+
+### Namespaced DataLoader Registry
+
+For scalable, maintainable, and testable applications, we recommend using a **namespaced DataLoader registry** attached to your context. This pattern is especially effective for GraphQL servers, but works for any service that needs per-request batching and caching.
+
+#### Factory Example
+
+```js
+import DataLoader from 'dataloader';
+
+// Example batch functions
+async function batchGetUsersById(ids, context) { /* ... */ }
+async function batchGetUsersByEmail(emails, context) { /* ... */ }
+async function batchGetPostsById(ids, context) { /* ... */ }
+async function batchGetPostsByUserId(userIds, context) { /* ... */ }
+
+// Factory function to create all DataLoader instances, namespaced by model/entity
+export function createDataLoaders(context) {
+  return {
+    user: {
+      byId: new DataLoader(ids => batchGetUsersById(ids, context)),
+      byEmail: new DataLoader(emails => batchGetUsersByEmail(emails, context)),
+    },
+    post: {
+      byId: new DataLoader(ids => batchGetPostsById(ids, context)),
+      byUserId: new DataLoader(userIds => batchGetPostsByUserId(userIds, context)),
+    }
+    // Add more namespaces/loaders as needed
+  };
+}
+```
+
+#### Context Construction Example
+
+```js
+// Example: Apollo Server context
+import { createDataLoaders } from './data-loader-factory.js';
+
+const server = new ApolloServer({
+  context: async ({ req }) => {
+    const baseCtx = { user: req.user, services: getServices() };
+    return {
+      ...baseCtx,
+      dataLoaders: createDataLoaders(baseCtx)
+    };
+  }
+});
+```
+
+#### Usage in Resolvers
+
+```js
+const resolvers = {
+  Query: {
+    user: (parent, { id }, context) => context.dataLoaders.user.byId.load(id),
+    post: (parent, { id }, context) => context.dataLoaders.post.byId.load(id),
+  },
+  User: {
+    posts: (user, args, context) => context.dataLoaders.post.byUserId.load(user.id),
+  }
+};
+```
+
+#### Testing
+
+```js
+// Example test context mock
+const mockContext = {
+  dataLoaders: {
+    user: {
+      byId: { load: jest.fn() },
+      byEmail: { load: jest.fn() }
+    },
+    post: {
+      byId: { load: jest.fn() },
+      byUserId: { load: jest.fn() }
+    }
+  }
+};
+```
+
+---
+
+### Summary
+
+- **Registry shape:** `{ [namespace]: { [loaderName]: DataLoader instance } }`
+- **Context shape:** `{ ...ctx, dataLoaders: { ... } }`
+- **Usage:** `context.dataLoaders.user.byId.load(id)`
+- **Testable:** Easy to mock in unit tests
+- **Per-request:** Always instantiate loaders per request for safe caching
+
+> This pattern is scalable, maintainable, and aligns with best practices for batching and caching in GraphQL and modern service APIs.
+
+---
+
 ## Summary
 - The data-loader loader makes it easy to register, validate, and inject all your data-loader definitions into the app context.
 - Host apps (like Apollo Server) can then instantiate DataLoader instances per request, using these definitions for efficient, batched, and cached data fetching.

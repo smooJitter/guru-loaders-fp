@@ -1,80 +1,43 @@
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
-import { findFiles as defaultFindFiles, importAndApply as defaultImportModule } from '../utils/file-utils.js';
-import { getLoaderLogger } from '../utils/loader-logger.js';
+import { createAsyncLoader } from '../core/loader-core/loader-async.js';
+import { buildJsonRegistryWithWarning } from '../core/loader-core/lib/registry-builders.js';
+import * as R from 'ramda';
 
-// File patterns for JSON modules
-const JSON_PATTERNS = {
-  default: '**/*.json.js',
-  index: '**/json/**/*.index.js'
-};
+const JSON_PATTERNS = [
+  '**/*.json.js',
+  '**/json/**/*.index.js'
+];
 
-// JSON validation schema
-const jsonSchema = {
-  name: 'string',
-  value: ['object', 'array', 'string', 'number', 'boolean', 'undefined'],
-  options: ['object', 'undefined']
-};
-
-// Extract a JSON object from a module (factory or object)
-const extractJson = (module, context) => {
-  if (!module || typeof module !== 'object') return undefined;
-  if (typeof module.default === 'function') {
-    return module.default(context);
-  }
-  return module.default || module;
-};
-
-export const jsonLoader = async (ctx = {}) => {
-  const options = ctx.options || {};
-  const patterns = options.patterns || JSON_PATTERNS;
-  const findFiles = options.findFiles || defaultFindFiles;
-  const importModule = options.importModule || defaultImportModule;
-  const logger = getLoaderLogger(ctx, options, 'json-loader');
-
-  let files = [];
-  try {
-    files = findFiles(patterns.default);
-  } catch (err) {
-    logger.warn('[json-loader] Error finding files:', err.message);
-    files = [];
-  }
-
-  let modules = [];
-  try {
-    modules = await Promise.all(files.map(file => importModule(file, ctx)));
-  } catch (err) {
-    logger.warn('[json-loader] Error importing modules:', err.message);
-    modules = [];
-  }
-
-  const registry = {};
-  for (let i = 0; i < modules.length; i++) {
-    let jsonObj;
-    try {
-      jsonObj = extractJson(modules[i], ctx);
-      if (!jsonObj || typeof jsonObj !== 'object') throw new Error('Module did not export a valid object or factory');
-      validationHook(jsonObj, jsonSchema);
-      // Context injection and transform
-      const injected = contextInjectionHook(jsonObj, { services: ctx?.services });
-      const finalObj = {
-        ...injected,
-        type: 'json',
-        timestamp: Date.now()
-      };
-      if (finalObj.name) {
-        if (registry[finalObj.name]) {
-          logger.warn('[json-loader] Duplicate JSON names found:', [finalObj.name]);
-        }
-        registry[finalObj.name] = finalObj;
-      } else {
-        throw new Error('Missing name property');
+// Import and apply: handles factory/object, augments with type/timestamp
+export const importAndApplyAllJsons = async (files, context) => {
+  const modules = await Promise.all(
+    (files || []).map(async (file) => {
+      let mod = (await import(file)).default ?? (await import(file));
+      let jsonObj = typeof mod === 'function' ? await mod(context) : mod;
+      if (jsonObj && typeof jsonObj === 'object') {
+        return { ...jsonObj, type: 'json', timestamp: Date.now() };
       }
-    } catch (err) {
-      logger.warn('[json-loader] Invalid or missing JSON in file:', files[i], err.message);
-    }
-  }
-  ctx.jsons = registry;
-  return { jsons: ctx.jsons };
+      return null;
+    })
+  );
+  // Filter out nulls
+  return modules.filter(Boolean);
 };
 
+// Context-agnostic validation: only allow { name: string, object }
+export const validateJsonModule = (mod) => {
+  return !!mod && typeof mod.name === 'string' && typeof mod === 'object';
+};
+
+export const createJsonLoader = (options = {}) =>
+  createAsyncLoader('jsons', {
+    patterns: options.patterns || JSON_PATTERNS,
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll || importAndApplyAllJsons,
+    validate: options.validate || validateJsonModule,
+    registryBuilder: options.registryBuilder || buildJsonRegistryWithWarning,
+    contextKey: 'jsons',
+    ...options
+  });
+
+export const jsonLoader = createJsonLoader();
 export default jsonLoader; 

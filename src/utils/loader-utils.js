@@ -7,6 +7,8 @@ import { assoc, filter, map, reduce, flatten } from 'ramda';
 /**
  * Create a robust, extensible, and pure loader for modules of a given type.
  * This implementation is fully functional and never mutates the input context.
+ * QA: If the transform returns a registry (object), it is merged into context[type] after all modules are processed.
+ * This enables robust, context-in/context-out loader behavior for advanced patterns.
  * @param {string} type - The registry type (e.g., 'actions', 'handlers', 'envs', etc.)
  * @param {object} options - Loader options
  * @param {string[]} [options.patterns] - Glob patterns for file discovery
@@ -41,33 +43,27 @@ export const createLoader = (type, options) => {
   return async (ctx) => {
     const context = { ...ctx };
     const registry = context[type] || {};
-    
     try {
       // Find files
       const files = await findFilesFn(patterns);
-      
-      // Import and process modules
-      const modules = await Promise.all(
+      // Import and process modules, collect registries from transform
+      const registries = await Promise.all(
         files.map(async (file) => {
           try {
             const module = await importModule(file, context);
             if (!module) return null;
-            
             // Transform module
-            const transformed = transform(module, context);
+            const transformed = await transform(module, context);
             if (!transformed) return null;
-            
             // Validate module
             if (!validate(type, transformed)) {
               onInvalid(transformed, context);
               return null;
             }
-            
             // Check for duplicates
             if (registry[transformed.name]) {
               onDuplicate(transformed.name, context);
             }
-            
             return transformed;
           } catch (err) {
             logger.warn(`[${type}-loader] Error processing ${file}:`, err);
@@ -75,17 +71,13 @@ export const createLoader = (type, options) => {
           }
         })
       );
-      
-      // Build registry
-      const validModules = modules.filter(Boolean);
-      const newRegistry = validModules.reduce((reg, module) => {
-        reg[module.name] = module.service || module;
-        return reg;
-      }, {});
-      
-      // Update context
-      context[type] = { ...registry, ...newRegistry };
-      
+      // QA: Merge all returned registries into context[type]
+      const mergedRegistry = Object.assign({}, ...registries.filter(r => r && typeof r === 'object'));
+      if (context[type]) {
+        Object.assign(context[type], mergedRegistry);
+      } else {
+        context[type] = mergedRegistry;
+      }
       // Setup watch if enabled
       let cleanup = () => {};
       if (watch) {
@@ -94,7 +86,6 @@ export const createLoader = (type, options) => {
           Object.assign(context, newContext);
         });
       }
-      
       return { context, cleanup };
     } catch (err) {
       logger.error(`[${type}-loader] Error:`, err);

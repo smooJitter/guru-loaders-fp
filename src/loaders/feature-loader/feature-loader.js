@@ -1,6 +1,8 @@
 // src/loaders/featureLoader.js
 
-import { createLoader } from '../../utils/loader-utils.js';
+import { createAsyncLoader } from '../../core/loader-core/loader-async.js';
+import { importAndApplyAllFeatures } from './importAndApplyAllFeatures.js';
+import { featureRegistryBuilder } from './featureRegistryBuilder.js';
 import { findFeatureFiles, aggregateFeatureArtifacts } from './discovery.js';
 import { discoverFeatureArtifacts } from './discover-feature-artifacts.js';
 import { validateFeatureContext, injectFeatureContext, runFeatureLifecycle } from './context.js';
@@ -55,38 +57,29 @@ export const validateFeatureModule = (type, module) => {
 };
 
 /**
- * Create the feature loader using createLoader and discovery.js utilities
+ * Create the feature loader using createAsyncLoader and discovery.js utilities
  * @param {object} options - Loader options
  * @returns {function} Loader function
  */
 export const createFeatureLoader = (options = {}) =>
-  createLoader('features', {
+  createAsyncLoader('features', {
     patterns: options.patterns || FEATURE_PATTERNS,
-    findFiles: options.findFiles || customFindFiles,
-    ...options,
-    transform: options.transform || extractFeatureArtifacts,
-    validate: options.validate || validateFeatureModule,
-    async onInit(context) {
-      validateFeatureContext(context);
-      injectFeatureContext(context);
-      await runFeatureLifecycle('beforeAll', context);
-
-      // Merge all feature registries
-      const featureManifests = context.features || [];
-      const { typeComposersList, queriesList, mutationsList, resolversList } =
-        mergeFeatureRegistries(context, featureManifests);
-
-      // Report duplicates
-      const logger = getLoaderLogger(context, options, 'feature-loader');
-      reportDuplicates(typeComposersList, queriesList, mutationsList, resolversList, logger);
-
-      await runFeatureLifecycle('afterAll', context);
-
-      if (!context.typeComposers || typeof context.typeComposers !== 'object') {
-        context.typeComposers = {};
-      }
-    }
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll || importAndApplyAllFeatures,
+    registryBuilder: options.registryBuilder || featureRegistryBuilder,
+    ...options
   });
 
-export const featureLoader = createFeatureLoader();
+const featureLoader = async (ctx = {}) => {
+  ctx.features = ctx.features || [];
+  const loader = createFeatureLoader({
+    findFiles: ctx.findFiles,
+    importAndApplyAll: ctx.importAndApplyAll,
+    registryBuilder: ctx.registryBuilder,
+  });
+  const registries = await loader(ctx); // registries: { typeComposers, queries, ... }
+  Object.assign(ctx, registries);
+  return { context: ctx };
+};
+
 export default featureLoader;

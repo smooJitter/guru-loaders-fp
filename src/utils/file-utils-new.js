@@ -120,6 +120,12 @@ export const importAndApply = async (file, context) => {
 };
 
 /**
+ * Import and apply context to an array of modules
+ */
+export const importAndApplyAll = async (files, context) =>
+  Promise.all((files || []).map(file => importAndApply(file, context)));
+
+/**
  * Watch files for changes using chokidar (supports glob patterns)
  */
 export const watchFiles = (patterns, callback, options = {}) => {
@@ -223,4 +229,104 @@ export const deleteFile = async (file) => {
   if (!file) throw new Error('Invalid file');
   await fs.unlink(file);
   return file;
+};
+
+/**
+ * Synchronously find files matching glob patterns using fast-glob.
+ * @param {string[]} patterns - Array of glob patterns
+ * @param {object} [options] - fast-glob options
+ * @returns {string[]} - Array of file paths
+ */
+export const findFilesSync = (patterns, options = {}) =>
+  fg.sync(patterns, {
+    absolute: true,
+    onlyFiles: true,
+    unique: true,
+    dot: true,
+    followSymbolicLinks: true,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+    ...options,
+  });
+
+/**
+ * Synchronously import and apply context to an array of modules
+ * @param {string[]} files
+ * @param {object} context
+ * @returns {Array}
+ */
+export const importAndApplyAllSync = (files, context) =>
+  (files || []).map(file => {
+    const mod = require(file);
+    return typeof mod === 'function'
+      ? mod(context)
+      : (mod.default !== undefined ? mod.default : mod);
+  });
+
+/**
+ * Import and apply context to an array of feature paths (files or directories).
+ * For directories, imports index.js only (per project convention, ESM).
+ * No .mjs or .cjs is supported or expected.
+ * @param {string[]} paths
+ * @param {object} context
+ * @returns {Promise<Array>} Array of imported modules/features
+ */
+export const importAndApplyAllFeatures = async (paths, context) => {
+  const results = [];
+  // Prefer context.services.logger, fallback to console
+  const logger = context?.services?.logger || console;
+  for (const p of paths || []) {
+    try {
+      const stat = await fs.stat(p);
+      if (stat.isDirectory()) {
+        // Only check for index.js as entrypoint
+        const entry = path.join(p, 'index.js');
+        try {
+          logger.info?.('[importAndApplyAllFeatures] Trying entry:', entry);
+          const feature = await importAndApply(entry, context);
+          results.push(feature);
+          logger.info?.('[importAndApplyAllFeatures] Successfully imported:', entry);
+        } catch (e) {
+          logger.error?.('[importAndApplyAllFeatures] Failed to import', entry, e);
+          logger.warn?.('[importAndApplyAllFeatures] No valid index.js found in directory:', p);
+        }
+      } else {
+        // Regular file
+        try {
+          logger.info?.('[importAndApplyAllFeatures] Importing file:', p);
+          const mod = await importAndApply(p, context);
+          results.push(mod);
+          logger.info?.('[importAndApplyAllFeatures] Successfully imported file:', p);
+        } catch (e) {
+          logger.error?.('[importAndApplyAllFeatures] Failed to import file', p, e);
+        }
+      }
+    } catch (err) {
+      logger.error?.('[importAndApplyAllFeatures] Stat error for', p, err);
+    }
+  }
+  return results;
+};
+
+/**
+ * Find both files and directories matching glob patterns.
+ * @param {string[]} patterns
+ * @param {object} [options]
+ * @returns {Promise<string[]>}
+ */
+export const findFilesAndDirs = async (patterns, options = {}) => {
+  if (!Array.isArray(patterns) || patterns.length === 0) return [];
+  const validPatterns = patterns.filter(p => typeof p === 'string' && p.length > 0);
+  if (validPatterns.length === 0) return [];
+  const fgOptions = {
+    absolute: true,
+    unique: true,
+    dot: true,
+    followSymbolicLinks: true,
+    markDirectories: true,
+    onlyFiles: false,
+    onlyDirectories: false,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+    ...options,
+  };
+  return await fg(validPatterns, fgOptions);
 }; 

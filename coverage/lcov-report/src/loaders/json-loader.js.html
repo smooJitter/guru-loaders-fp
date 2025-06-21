@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90% </span>
+                <span class="strong">88.37% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>36/40</span>
+                <span class='fraction'>38/43</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">59.09% </span>
+                <span class="strong">64% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>13/22</span>
+                <span class='fraction'>16/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.44% </span>
+                <span class="strong">89.74% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>34/36</span>
+                <span class='fraction'>35/39</span>
             </div>
         
             
@@ -136,7 +136,13 @@
 <a name='L71'></a><a href='#L71'>71</a>
 <a name='L72'></a><a href='#L72'>72</a>
 <a name='L73'></a><a href='#L73'>73</a>
-<a name='L74'></a><a href='#L74'>74</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -162,7 +168,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
@@ -173,6 +178,11 @@
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
@@ -180,13 +190,14 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
@@ -206,8 +217,9 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
 import { findFiles as defaultFindFiles, importAndApply as defaultImportModule } from '../utils/file-utils.js';
@@ -235,61 +247,67 @@ const extractJson = (module, context) =&gt; {
 <span class="cstat-no" title="statement not covered" >  return module.default || module;</span>
 };
 &nbsp;
-// Pipeline-friendly json loader
-export const jsonLoader = async (ctx) =&gt; {
+export const jsonLoader = async (ctx = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> =&gt; {
   const options = ctx.options || <span class="branch-1 cbranch-no" title="branch not covered" >{};</span>
   const patterns = options.patterns || JSON_PATTERNS;
   const findFiles = options.findFiles || <span class="branch-1 cbranch-no" title="branch not covered" >defaultFindFiles;</span>
   const importModule = options.importModule || <span class="branch-1 cbranch-no" title="branch not covered" >defaultImportModule;</span>
   const logger = getLoaderLogger(ctx, options, 'json-loader');
 &nbsp;
-  return errorHandlingHook(async () =&gt; {
-    loggingHook(ctx, 'Loading JSON modules');
-    let files = findFiles(patterns.default);
-    let modules = [];
+  let files = [];
+  try {
+    files = findFiles(patterns.default);
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    logger.warn('[json-loader] Error finding files:', err.message);</span>
+<span class="cstat-no" title="statement not covered" >    files = [];</span>
+  }
+&nbsp;
+  let modules = [];
+  try {
+    modules = await Promise.all(files.map(file =&gt; importModule(file, ctx)));
+  } catch (err) {
+    logger.warn('[json-loader] Error importing modules:', err.message);
+    modules = [];
+  }
+&nbsp;
+  const registry = {};
+  for (let i = 0; i &lt; modules.length; i++) {
+    let jsonObj;
     try {
-      modules = await Promise.all(files.map(file =&gt; importModule(file, ctx)));
-    } catch (err) {
-      logger.warn(`[json-loader] Error importing JSON files: ${err.message}`);
-      modules = [];
-    }
-    const registry = {};
-    for (let i = 0; i &lt; modules.length; i++) {
-      let jsonObj;
-      try {
-        jsonObj = extractJson(modules[i], ctx);
-        <span class="missing-if-branch" title="if path not taken" >I</span>if (!jsonObj) <span class="cstat-no" title="statement not covered" >throw new Error('Module did not export a valid object or factory');</span>
-        validationHook(jsonObj, jsonSchema);
-        // Context injection and transform
-        const injected = contextInjectionHook(jsonObj, { services: ctx?.services });
-        const finalObj = {
-          ...injected,
-          type: 'json',
-          timestamp: Date.now()
-        };
-        if (finalObj.name) {
-          if (registry[finalObj.name]) {
-            logger.warn('Duplicate JSON names found:', [finalObj.name]);
-          }
-          registry[finalObj.name] = finalObj;
-        } else <span class="missing-if-branch" title="else path not taken" >E</span>{
-<span class="cstat-no" title="statement not covered" >          throw new Error('Missing name property');</span>
+      jsonObj = extractJson(modules[i], ctx);
+      if (!jsonObj || typeof jsonObj !== 'object') throw new Error('Module did not export a valid object or factory');
+      validationHook(jsonObj, jsonSchema);
+      // Context injection and transform
+      const injected = contextInjectionHook(jsonObj, { services: ctx?.services });
+      const finalObj = {
+        ...injected,
+        type: 'json',
+        timestamp: Date.now()
+      };
+      if (finalObj.name) {
+        if (registry[finalObj.name]) {
+          logger.warn('[json-loader] Duplicate JSON names found:', [finalObj.name]);
         }
-      } catch (err) {
-        logger.warn(`Invalid or missing JSON in file: ${files[i]}: ${err.message}`);
+        registry[finalObj.name] = finalObj;
+      } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >        throw new Error('Missing name property');</span>
       }
+    } catch (err) {
+      logger.warn('[json-loader] Invalid or missing JSON in file:', files[i], err.message);
     }
-    // Return a context-mergeable object
-    return { ...ctx, jsons: registry };
-  }, ctx);
-}; </pre></td></tr></table></pre>
+  }
+  ctx.jsons = registry;
+  return { jsons: ctx.jsons };
+};
+&nbsp;
+export default jsonLoader; </pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-13T20:41:34.877Z
+                at 2025-06-19T00:38:47.418Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

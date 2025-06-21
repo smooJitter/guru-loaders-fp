@@ -37,6 +37,7 @@ describe('serviceLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services.spotifyService).toMatchObject({
       play: expect.any(Function),
@@ -56,9 +57,10 @@ describe('serviceLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services.dupeService).toBeDefined();
-    expect(mockLogger.warn).toHaveBeenCalledWith('[service-loader]', 'Duplicate service names found:', ['dupeService']);
+    expect(mockLogger.warn).toHaveBeenCalledWith('[buildRegistry] Duplicate key detected: dupeService');
   });
 
   it('skips invalid service objects (missing name) and does not register them (failure)', async () => {
@@ -69,6 +71,7 @@ describe('serviceLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -82,6 +85,7 @@ describe('serviceLoader', () => {
       importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -94,6 +98,7 @@ describe('serviceLoader', () => {
       importModule: async () => { throw new Error('fail'); },
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services).toEqual({});
     expect(mockLogger.warn).toHaveBeenCalled();
@@ -105,24 +110,31 @@ describe('serviceLoader', () => {
       importModule: async () => ({}),
       findFiles: () => []
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
     expect(result.services).toEqual({});
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   it('injects context/services/config into service factory', async () => {
-    const injectedFactory = jest.fn((ctx) => ({
-      name: 'contextService',
-      service: { configValue: ctx.config.foo }
-    }));
+    const injectedFactory = jest.fn((ctx) => {
+      console.log('DEBUG injectedFactory ctx:', ctx);
+      return {
+        name: 'contextService',
+        service: { configValue: ctx.config.foo }
+      };
+    });
     const files = ['context.service.js'];
     const modules = { 'context.service.js': { default: injectedFactory } };
     const ctx = baseContext();
     ctx.options = {
-      importModule: async (file, ctx) => modules[file].default(ctx),
+      importModule: async (file, ctx) => modules[file],
       findFiles: () => files
     };
+    ctx.options.transformContext = ctx;
     const result = await serviceLoader(ctx);
+    console.log('DEBUG services:', result.services);
+    expect(result.services.contextService).toBeDefined();
     expect(result.services.contextService.configValue).toBe('bar');
   });
 }); 

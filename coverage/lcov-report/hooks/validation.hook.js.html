@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">8.33% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>12/12</span>
+                <span class='fraction'>1/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/6</span>
+                <span class='fraction'>0/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>0/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">9.09% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/11</span>
+                <span class='fraction'>1/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -97,22 +97,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Validation Hook
  *
@@ -122,22 +122,22 @@
  * @param {object} schema - The schema to validate against (key: property, value: expected type).
  * @returns {object} The validated module.
  */
-export const validationHook = (module, schema) =&gt; {
-  const failures = [];
-  Object.entries(schema).forEach(([key, expected]) =&gt; {
-    const actual = typeof module[key];
-    const ok = Array.isArray(expected)
-      ? <span class="branch-0 cbranch-no" title="branch not covered" >expected.includes(actual)</span>
+export const validationHook = <span class="fstat-no" title="function not covered" >(m</span>odule, schema) =&gt; {
+  const failures = <span class="cstat-no" title="statement not covered" >[];</span>
+<span class="cstat-no" title="statement not covered" >  Object.entries(schema).forEach(<span class="fstat-no" title="function not covered" >([</span>key, expected]) =&gt; {</span>
+    const actual = <span class="cstat-no" title="statement not covered" >typeof module[key];</span>
+    const ok = <span class="cstat-no" title="statement not covered" >Array.isArray(expected)</span>
+      ? expected.includes(actual)
       : actual === expected;
-    if (!ok) failures.push({ key, expected, actual });
+<span class="cstat-no" title="statement not covered" >    if (!ok) <span class="cstat-no" title="statement not covered" >failures.push({ key, expected, actual });</span></span>
   });
-  if (failures.length) {
-    const msg = failures
-      .map(f =&gt; `${f.key}: expected ${f.expected}, got ${f.actual}`)
+<span class="cstat-no" title="statement not covered" >  if (failures.length) {</span>
+    const msg = <span class="cstat-no" title="statement not covered" >failures</span>
+      .map(<span class="fstat-no" title="function not covered" >f </span>=&gt; <span class="cstat-no" title="statement not covered" >`${f.key}: expected ${f.expected}, got ${f.actual}`)</span>
       .join('; ');
-    throw new TypeError(`Module validation failed — ${msg}`);
+<span class="cstat-no" title="statement not covered" >    throw new TypeError(`Module validation failed — ${msg}`);</span>
   }
-  return module;
+<span class="cstat-no" title="statement not covered" >  return module;</span>
 }; </pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -145,7 +145,7 @@ export const validationHook = (module, schema) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T07:54:21.519Z
+                at 2025-06-21T06:54:04.440Z
             </div>
         <script src="../prettify.js"></script>
         <script>

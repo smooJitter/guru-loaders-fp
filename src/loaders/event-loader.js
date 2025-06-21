@@ -1,78 +1,46 @@
-import { loggingHook, validationHook, errorHandlingHook, contextInjectionHook } from '../hooks/index.js';
-import { getLoaderLogger } from '../utils/loader-logger.js';
+import { createAsyncLoader } from '../core/loader-core/loader-async.js';
+import { buildEventPipelineRegistries } from '../core/loader-core/lib/registry-builders.js';
+import * as R from 'ramda';
 
-// File patterns for event modules
-const EVENT_PATTERNS = {
-  default: '**/*.event.js',
-  index: '**/events/**/*.index.js'
-};
+const EVENT_PATTERNS = [
+  '**/*.event.js',
+  '**/events/**/*.index.js'
+];
 
-// Event validation schema
-const eventSchema = {
-  name: 'string',
-  event: 'function',
-  options: ['object', 'undefined']
-};
-
-// Extract event(s) from a module (factory or object/array)
-const extractEvents = (module, context) => {
-  if (!module || typeof module !== 'object') return [];
-  const mod = module.default || module;
-  const events = typeof mod === 'function' ? mod(context) : mod;
-  return Array.isArray(events) ? events : [events];
-};
-
-// Pipeline-friendly event loader
-export const eventLoader = async (ctx = {}) => {
-  const options = ctx.options || {};
-  const patterns = options.patterns || EVENT_PATTERNS;
-  const findFiles = options.findFiles;
-  const importModule = options.importModule;
-  const logger = getLoaderLogger(ctx, options, 'event-loader');
-
-  return errorHandlingHook(async () => {
-    loggingHook(ctx, 'Loading event modules');
-    let files = findFiles ? findFiles(patterns.default) : [];
-    let modules = [];
-    try {
-      modules = await Promise.all(files.map(file => importModule(file, ctx)));
-    } catch (err) {
-      logger.warn(`[event-loader] Error importing event files: ${err.message}`);
-      modules = [];
-    }
-    const registry = {};
-    for (let i = 0; i < modules.length; i++) {
-      try {
-        const events = extractEvents(modules[i], ctx);
-        for (const event of events) {
-          validationHook(event, eventSchema);
-          const injected = contextInjectionHook(event, { services: ctx?.services });
-          const finalObj = {
-            ...injected,
-            type: 'event',
-            timestamp: Date.now()
-          };
-          if (finalObj.name) {
-            if (registry[finalObj.name]) {
-              logger.warn('Duplicate event names found:', [finalObj.name]);
-            }
-            registry[finalObj.name] = finalObj;
-          } else {
-            throw new Error('Missing name property');
-          }
-        }
-      } catch (err) {
-        logger.warn(`Invalid or missing event in file: ${files[i]}: ${err.message}`);
+// Import and apply: handles factory/object, flattens arrays, augments with type/timestamp
+export const importAndApplyAllEvents = async (files, context) => {
+  const modules = await Promise.all(
+    (files || []).map(async (file) => {
+      let mod = (await import(file)).default ?? (await import(file));
+      let eventObj = typeof mod === 'function' ? await mod(context) : mod;
+      if (Array.isArray(eventObj)) {
+        return eventObj.map(ev => ev && typeof ev === 'object' ? { ...ev, type: 'event', timestamp: Date.now() } : null);
+      } else if (eventObj && typeof eventObj === 'object') {
+        return { ...eventObj, type: 'event', timestamp: Date.now() };
       }
-    }
-    logger.info && logger.info(`[event-loader] Loaded events: ${Object.keys(registry).join(', ')}`);
-    // Return a context-mergeable object
-    const context = { ...ctx, events: registry };
-    if (!context.events || typeof context.events !== 'object') {
-      context.events = {};
-    }
-    return { events: context.events };
-  }, ctx);
+      return null;
+    })
+  );
+  // Flatten and filter out nulls
+  return R.flatten(modules).filter(Boolean);
 };
 
+// Context-agnostic validation: only allow { name: string, event: function }
+export const validateEventModule = (mod) => {
+  return !!mod && typeof mod.name === 'string' && typeof mod.event === 'function';
+};
+
+// Factory for composable event loader
+export const createEventLoader = (options = {}) =>
+  createAsyncLoader('events', {
+    patterns: options.patterns || EVENT_PATTERNS,
+    findFiles: options.findFiles,
+    importAndApplyAll: options.importAndApplyAll || importAndApplyAllEvents,
+    validate: options.validate || validateEventModule,
+    registryBuilder: options.registryBuilder || buildEventPipelineRegistries,
+    contextKey: 'events',
+    ...options
+  });
+
+export const eventLoader = createEventLoader();
 export default eventLoader; 

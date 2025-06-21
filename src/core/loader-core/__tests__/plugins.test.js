@@ -1,168 +1,108 @@
-import { withPlugins, withMiddleware, withValidation } from '../plugins.js';
-import { pipeAsync } from '@/utils/async-pipeline-utils.js';
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import {
+  withPlugins,
+  withMiddleware,
+  withValidation,
+  composePlugins,
+  filterPlugins,
+  loggingPlugin,
+  asyncLoggingPlugin
+} from '../plugins.js';
+import { beforePlugin, afterPlugin } from './lib/mockPlugins.js';
+import { mockContext } from './lib/mockContext.js';
 
-describe('loader-core/plugins', () => {
-  let mockContext;
-  let plugins;
-
-  beforeEach(async () => {
-    plugins = await import('../plugins.js');
-
-    mockContext = {
-      services: {
-        logger: mockLogger
-      },
-      test: true
-    };
+describe('plugins.js', () => {
+  it('withPlugins applies before and after hooks (sync)', async () => {
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withPlugins([beforePlugin, afterPlugin])(loader);
+    const result = await wrapped(mockContext());
+    expect(result.before).toBe(true);
+    expect(result.after).toBe(true);
+    expect(result.loaded).toBe(true);
   });
 
-  describe('withPlugins', () => {
-    it('should apply plugins in order', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const plugin1 = {
-        before: jest.fn().mockImplementation(ctx => ({ ...ctx, p1: true })),
-        after: jest.fn().mockImplementation(ctx => ({ ...ctx, p1After: true }))
-      };
-      const plugin2 = {
-        before: jest.fn().mockImplementation(ctx => ({ ...ctx, p2: true })),
-        after: jest.fn().mockImplementation(ctx => ({ ...ctx, p2After: true }))
-      };
-
-      const wrappedLoader = plugins.withPlugins([plugin1, plugin2])(mockLoader);
-      const result = await wrappedLoader(mockContext);
-
-      expect(plugin1.before).toHaveBeenCalled();
-      expect(plugin2.before).toHaveBeenCalled();
-      expect(mockLoader).toHaveBeenCalled();
-      expect(plugin1.after).toHaveBeenCalled();
-      expect(plugin2.after).toHaveBeenCalled();
-      expect(result.context).toEqual(expect.objectContaining({
-        p1After: true,
-        p2After: true,
-        services: mockContext.services,
-        test: true
-      }));
-    });
-
-    it('should handle async plugins', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const asyncPlugin = {
-        before: jest.fn().mockImplementation(async ctx => ({ ...ctx, asyncBefore: true })),
-        after: jest.fn().mockImplementation(async ctx => ({ ...ctx, asyncAfter: true }))
-      };
-
-      const wrappedLoader = plugins.withPlugins([asyncPlugin])(mockLoader);
-      const result = await wrappedLoader(mockContext);
-
-      expect(asyncPlugin.before).toHaveBeenCalled();
-      expect(asyncPlugin.after).toHaveBeenCalled();
-      expect(result.context).toEqual(expect.objectContaining({
-        asyncAfter: true,
-        services: mockContext.services,
-        test: true
-      }));
-    });
-
-    it('should handle plugin errors gracefully', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const errorPlugin = {
-        before: jest.fn(() => {
-          throw new Error('Plugin error');
-        })
-      };
-
-      const wrappedLoader = plugins.withPlugins([errorPlugin])(mockLoader);
-      await expect(wrappedLoader(mockContext)).rejects.toThrow('Plugin error');
-    });
+  it('withPlugins applies async before/after hooks', async () => {
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withPlugins([asyncLoggingPlugin])(loader);
+    const result = await wrapped(mockContext());
+    expect(result.loaded).toBe(true);
+    // No assertion for console.log, just ensure no error
   });
 
-  describe('withMiddleware', () => {
-    it('should apply middleware in order', async () => {
-      const mockLoader = jest.fn(async ctx => ({ context: ctx }));
-      const middleware1 = jest.fn().mockImplementation(ctx => ({ ...ctx, m1: true }));
-      const middleware2 = jest.fn().mockImplementation(ctx => ({ ...ctx, m2: true }));
-
-      const wrappedLoader = plugins.withMiddleware([middleware1, middleware2])(mockLoader);
-      const result = await wrappedLoader(mockContext);
-
-      expect(middleware1).toHaveBeenCalled();
-      expect(middleware2).toHaveBeenCalled();
-      expect(mockLoader).toHaveBeenCalled();
-      expect(result.context).toEqual({
-        ...mockContext,
-        m1: true,
-        m2: true
-      });
-    });
-
-    it('should handle async middleware', async () => {
-      const mockLoader = jest.fn(async ctx => ({ context: ctx }));
-      const asyncMiddleware = jest.fn(async ctx => ({ ...ctx, asyncM: true }));
-
-      const wrappedLoader = plugins.withMiddleware([asyncMiddleware])(mockLoader);
-      const result = await wrappedLoader(mockContext);
-
-      expect(asyncMiddleware).toHaveBeenCalled();
-      expect(result.context).toEqual({
-        ...mockContext,
-        asyncM: true
-      });
-    });
-
-    it('should handle middleware errors gracefully', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const errorMiddleware = jest.fn(() => {
-        throw new Error('Middleware error');
-      });
-
-      const wrappedLoader = plugins.withMiddleware([errorMiddleware])(mockLoader);
-      await expect(wrappedLoader(mockContext)).rejects.toThrow('Middleware error');
-    });
+  it('withPlugins composes multiple plugins in order', async () => {
+    const order = [];
+    const pluginA = { before: ctx => { order.push('A-before'); return ctx; }, after: ctx => { order.push('A-after'); return ctx; } };
+    const pluginB = { before: ctx => { order.push('B-before'); return ctx; }, after: ctx => { order.push('B-after'); return ctx; } };
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withPlugins([pluginA, pluginB])(loader);
+    await wrapped(mockContext());
+    expect(order).toEqual(['A-before', 'B-before', 'A-after', 'B-after']);
   });
 
-  describe('withValidation', () => {
-    it('should validate modules correctly', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const validator1 = jest.fn().mockResolvedValue(true);
-      const validator2 = jest.fn().mockResolvedValue(true);
+  it('withMiddleware applies middleware before loader', async () => {
+    const mw1 = ctx => ({ ...ctx, mw1: true });
+    const mw2 = ctx => ({ ...ctx, mw2: true });
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withMiddleware([mw1, mw2])(loader);
+    const result = await wrapped(mockContext());
+    expect(result.mw1).toBe(true);
+    expect(result.mw2).toBe(true);
+    expect(result.loaded).toBe(true);
+  });
 
-      const wrappedLoader = plugins.withValidation([validator1, validator2])(mockLoader);
-      await wrappedLoader(mockContext);
+  it('withValidation runs validators and throws on error', async () => {
+    const validator = ctx => { if (!ctx.user) throw new Error('No user'); };
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withValidation([validator])(loader);
+    await expect(wrapped(mockContext())).resolves.toHaveProperty('loaded', true);
+    const badContext = mockContext({ user: undefined });
+    await expect(wrapped(badContext)).rejects.toThrow('No user');
+  });
 
-      expect(validator1).toHaveBeenCalledWith(mockContext);
-      expect(validator2).toHaveBeenCalledWith(mockContext);
-      expect(mockLoader).toHaveBeenCalledWith(mockContext);
-    });
+  it('composePlugins flattens and dedupes plugin arrays', () => {
+    const pluginA = { name: 'A' };
+    const pluginB = { name: 'B' };
+    const arr1 = [pluginA, pluginB];
+    const arr2 = [pluginA];
+    const result = composePlugins(arr1, arr2);
+    expect(result).toEqual([pluginA, pluginB]);
+  });
 
-    it('should handle validation failures', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const validator = jest.fn().mockRejectedValue(new Error('Validation failed'));
+  it('filterPlugins filters plugins by predicate', () => {
+    const pluginA = { name: 'A' };
+    const pluginB = { name: 'B' };
+    const plugins = [pluginA, pluginB];
+    const filtered = filterPlugins(plugins, p => p.name === 'A');
+    expect(filtered).toEqual([pluginA]);
+  });
 
-      const wrappedLoader = plugins.withValidation([validator])(mockLoader);
-      await expect(wrappedLoader(mockContext)).rejects.toThrow('Validation failed');
+  it('withPlugins propagates errors from plugins', async () => {
+    const errorPlugin = { before: () => { throw new Error('fail before'); } };
+    const loader = ctx => ctx;
+    const wrapped = withPlugins([errorPlugin])(loader);
+    await expect(wrapped(mockContext())).rejects.toThrow('fail before');
+  });
 
-      expect(validator).toHaveBeenCalledWith(mockContext);
-      expect(mockLoader).not.toHaveBeenCalled();
-    });
+  it('withValidation ignores non-function validators', async () => {
+    const validator = ctx => { if (!ctx.user) throw new Error('No user'); };
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withValidation([validator, null, undefined, 42])(loader);
+    await expect(wrapped(mockContext())).resolves.toHaveProperty('loaded', true);
+  });
 
-    it('should handle async validators', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const asyncValidator = jest.fn().mockResolvedValue(true);
+  it('withPlugins ignores plugins with no before/after', async () => {
+    const noopPlugin = {};
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withPlugins([noopPlugin])(loader);
+    const result = await wrapped(mockContext());
+    expect(result.loaded).toBe(true);
+  });
 
-      const wrappedLoader = plugins.withValidation([asyncValidator])(mockLoader);
-      await wrappedLoader(mockContext);
-
-      expect(asyncValidator).toHaveBeenCalledWith(mockContext);
-      expect(mockLoader).toHaveBeenCalledWith(mockContext);
-    });
-
-    it('should handle validator errors gracefully', async () => {
-      const mockLoader = jest.fn().mockResolvedValue({ context: mockContext });
-      const errorValidator = jest.fn(() => { throw new Error('Validator error'); });
-
-      const wrappedLoader = plugins.withValidation([errorValidator])(mockLoader);
-      await expect(wrappedLoader(mockContext)).rejects.toThrow('Validator error');
-    });
+  it('withMiddleware ignores non-function middleware', async () => {
+    const mw1 = ctx => ({ ...ctx, mw1: true });
+    const loader = ctx => ({ ...ctx, loaded: true });
+    const wrapped = withMiddleware([mw1, null, undefined, 42])(loader);
+    const result = await wrapped(mockContext());
+    expect(result.mw1).toBe(true);
+    expect(result.loaded).toBe(true);
   });
 }); 
