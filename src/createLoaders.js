@@ -6,7 +6,6 @@ import {
   modelLoader,
   actionLoader,
   handlerLoader,
-  methodLoader,
   eventLoader,
   dataLoader,
   jsonLoader,
@@ -16,8 +15,7 @@ import {
   pubsubLoader,
   sdlLoader,
   typeLoader,
-  populateTypeComposers,
-  typeComposerLoader2,
+  typeComposerLoader,
   featureLoader,
   resolverLoader,
   loaders // registry
@@ -31,7 +29,6 @@ const startupPipeline = [
   modelLoader,
   actionLoader,
   handlerLoader,
-  methodLoader,
   eventLoader,
   dataLoader,
   jsonLoader,
@@ -41,8 +38,7 @@ const startupPipeline = [
   pubsubLoader,
   sdlLoader,
   typeLoader,
-  populateTypeComposers,
-  typeComposerLoader2,
+  typeComposerLoader,
   featureLoader,
   resolverLoader
 ];
@@ -109,7 +105,6 @@ export const fullPipeline = [
   loaders.model,
   loaders.action,
   loaders.handler,
-  loaders.method,
   loaders.event,
   loaders.data,
   loaders.json,
@@ -119,8 +114,7 @@ export const fullPipeline = [
   loaders.pubsub,
   loaders.sdl,
   loaders.type,
-  loaders.populateTypeComposers,
-  loaders.typeComposerLoader2,
+  loaders.typeComposer,
   loaders.feature,
   loaders.resolver
 ];
@@ -140,7 +134,7 @@ export const minimalPipeline = [
 export const phasedPipeline = [
   [loaders.env, loaders.db, loaders.service],
   [loaders.model, loaders.action, loaders.handler],
-  [loaders.populateTypeComposers, loaders.typeComposerLoader2, loaders.feature, loaders.resolver]
+  [loaders.typeComposer, loaders.feature, loaders.resolver]
 ];
 
 /**
